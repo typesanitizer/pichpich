@@ -6,6 +6,7 @@ exclude = ["tests/snapshots"]
 authors = ["Varun Gandhi <git@cutcul.us>"]
 readme = "README.md"
 repository = "https://github.com/typesanitizer/pichpich.git"
+license = "MPL-2.0"
 
 [lib]
 name = "pichpich"
