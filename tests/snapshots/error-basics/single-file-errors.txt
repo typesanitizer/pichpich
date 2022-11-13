@@ -1,0 +1,17 @@
+NOTE(username):
+FIXME(something):
+TODO(dat guy):
+
+See NOTE(ref: undef-n)
+
+See WARNING(ref: undef-n)
+
+See TODO(blah, ref: undef-t, stuff)
+
+FIXME(def: isafixme) No fixing needed lol
+See FIXME(ref: isafixme)
+
+See FIXME(ref: isafixme2)
+FIXME(def: isafixme2) No fixing needed lol
+
+See REVIEW(ref: undef-r)
