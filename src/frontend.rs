@@ -57,10 +57,12 @@ pub enum FrontendErrorData {
         range: SourceRange,
     },
     UnknownAttributeKey {
-        range: SourceRange,
-        comment_kind: &'static str,
+        leading_text: &'static str, // kinda' redundant but whatever
+        comment_range: SourceRange,
+        spans: Vec<Span>,
     },
 }
+
 impl Display for FrontendErrorData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self {
@@ -78,12 +80,34 @@ impl Display for FrontendErrorData {
             }
             FrontendErrorData::MalformedAttribute { .. } =>
                 f.write_str("found attribute not in 'key: value' format"),
-            FrontendErrorData::UnknownAttributeKey { range, comment_kind } =>
-                f.write_fmt(format_args!("found unknown attribute key '{}' for {}", range.slice(),
-                    // Should we pass in the kind/leading text here?
-                    comment_kind))
+            FrontendErrorData::UnknownAttributeKey { leading_text, comment_range, spans } => {
+                let key_text: Vec<_> = spans.iter().map(|span|
+                    format!("'{}'", SourceRange { span: *span, .. comment_range.clone() }.slice())
+                ).collect();
+                f.write_fmt(format_args!("found unknown attribute key{1} for {0}",
+                    leading_text, format_pluralized_and_list(&key_text)))
+            }
         }
     }
+}
+
+fn format_pluralized_and_list(vs: &[String]) -> String {
+    let mut buf = String::new();
+    assert!(!vs.is_empty());
+    if vs.len() == 1 {
+        buf.push(' ');
+        buf.push_str(&vs[0]);
+        return buf;
+    }
+    buf.push_str("s ");
+    for i in 0..vs.len() - 2 {
+        buf.push_str(&vs[i]);
+        buf.push_str(", ")
+    }
+    buf.push_str(&vs[vs.len() - 2]);
+    buf.push_str(" and ");
+    buf.push_str(&vs[vs.len() - 1]);
+    return buf;
 }
 
 impl Error for FrontendErrorData {}
@@ -121,8 +145,10 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MalformedAttribute { range } => Some(Box::new(
                 [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
             )),
-            FrontendErrorData::UnknownAttributeKey { range, .. } => Some(Box::new(
-                [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
+            FrontendErrorData::UnknownAttributeKey { spans, .. } => Some(Box::new(
+                spans
+                    .iter()
+                    .map(|span| miette::LabeledSpan::new_with_span(None, *span)),
             )),
         }
     }
@@ -131,7 +157,7 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MissingId { range } => Some(range),
             FrontendErrorData::EmptyAttributeKeyOrValue { range, .. } => Some(range),
             FrontendErrorData::MalformedAttribute { range } => Some(range),
-            FrontendErrorData::UnknownAttributeKey { range, .. } => Some(range),
+            FrontendErrorData::UnknownAttributeKey { comment_range, .. } => Some(comment_range),
         }
     }
 }
@@ -315,55 +341,23 @@ fn parse_magic_comment(
     // over it for accumulating state. This would allow to easily batch errors of the same
     // kind together.
     let mut errs = vec![];
+    let mut good_attrs = vec![];
+    // Filter out bad attributes first
     for kv in kv_pairs {
-        let (key, value) = match kv {
-            Ok((k, v)) => (k, v),
+        match kv {
+            Ok((k, v)) => good_attrs.push((k, v)),
             Err(bad_attr) => {
                 diagnose_bad_attribute_errors(error_config, base_range, bad_attr, &mut errs);
-                continue;
             }
-        };
-        use MagicCommentKindData as Kind;
-        match key {
-            "def" | "ref" => {
-                magic_comment.id = value.to_owned();
-                magic_comment.is_def = key == "def";
-            }
-            "issue" => match &mut magic_comment.kind {
-                Kind::Todo { issue } => *issue = Some(value.to_owned()),
-                Kind::Fixme { issue } => *issue = Some(value.to_owned()),
-                Kind::Note | Kind::Warning | Kind::Review { .. } => {
-                    diagnose_unknown_attr_key(
-                        error_config,
-                        base_range,
-                        key,
-                        &magic_comment.kind,
-                        &mut errs,
-                    );
-                }
-            },
-            "from" => match &mut magic_comment.kind {
-                Kind::Review { reviewer_id } => *reviewer_id = Some(value.to_owned()),
-                Kind::Note | Kind::Warning | Kind::Todo { .. } | Kind::Fixme { .. } => {
-                    diagnose_unknown_attr_key(
-                        error_config,
-                        base_range,
-                        key,
-                        &magic_comment.kind,
-                        &mut errs,
-                    );
-                }
-            },
-            _ => diagnose_unknown_attr_key(
-                error_config,
-                base_range,
-                key,
-                &magic_comment.kind,
-                &mut errs,
-            ),
         }
-        // TODO(def: issue-duplicate-error): Repeating an attribute is an error.
     }
+    populate_attrs(
+        &mut magic_comment,
+        error_config,
+        base_range,
+        good_attrs,
+        &mut errs,
+    );
     if magic_comment.id.is_empty() {
         if let Some(level) = error_config.get_level(AppErrorCode::MissingDefAndRef) {
             let err = WithErrorLevel {
@@ -381,29 +375,66 @@ fn parse_magic_comment(
     return Err(errs);
 }
 
+fn populate_attrs(
+    comment: &mut MagicComment,
+    error_config: &Arc<ErrorConfig>,
+    base_range: &SourceRange,
+    good_attrs: Vec<(&str, &str)>,
+    errs: &mut Vec<FrontendError>,
+) {
+    let mut bad_key_spans = Vec::new();
+    for (key, value) in good_attrs {
+        use MagicCommentKindData as Kind;
+        match key {
+            "def" | "ref" => {
+                comment.id = value.to_owned();
+                comment.is_def = key == "def";
+            }
+            "issue" => match &mut comment.kind {
+                Kind::Todo { issue } => *issue = Some(value.to_owned()),
+                Kind::Fixme { issue } => *issue = Some(value.to_owned()),
+                Kind::Note | Kind::Warning | Kind::Review { .. } => {
+                    diagnose_unknown_attr_key(error_config, base_range, key, &mut bad_key_spans);
+                }
+            },
+            "from" => match &mut comment.kind {
+                Kind::Review { reviewer_id } => *reviewer_id = Some(value.to_owned()),
+                Kind::Note | Kind::Warning | Kind::Todo { .. } | Kind::Fixme { .. } => {
+                    diagnose_unknown_attr_key(error_config, base_range, key, &mut bad_key_spans);
+                }
+            },
+            _ => diagnose_unknown_attr_key(error_config, base_range, key, &mut bad_key_spans),
+        }
+        // TODO(def: issue-duplicate-error): Repeating an attribute is an error.
+    }
+    if !bad_key_spans.is_empty() {
+        let level = error_config
+            .get_level(UnknownAttributeKey)
+            .expect("stored bad_key_spans even though UnknownAttributeKey is set to ignore");
+        errs.push(WithErrorLevel {
+            level,
+            error: FrontendErrorData::UnknownAttributeKey {
+                leading_text: comment.kind.leading_text(),
+                comment_range: base_range.clone(),
+                spans: bad_key_spans,
+            },
+        });
+    }
+}
+
 fn diagnose_unknown_attr_key(
     error_config: &Arc<ErrorConfig>,
     base_range: &SourceRange,
     key: &str,
-    kind: &MagicCommentKindData,
-    errs: &mut Vec<FrontendError>,
+    bad_key_spans: &mut Vec<Span>,
 ) {
     // TODO(def: special-case-urls): If you add a URL field directly, you'll get a not-so-great
     // error, because (e.g.) 'https' will be interpreted as the key. We should emit a special
     // diagnostic in that situation.
-    if let Some(level) = error_config.get_level(AppErrorCode::UnknownAttributeKey) {
+    if let Some(_) = error_config.get_level(UnknownAttributeKey) {
         let span = Span::interior_relative(base_range.slice(), key)
             .adjust_offsets(base_range.span.start());
-        errs.push(WithErrorLevel {
-            level,
-            error: FrontendErrorData::UnknownAttributeKey {
-                range: SourceRange {
-                    span,
-                    ..base_range.clone()
-                },
-                comment_kind: kind.leading_text(),
-            },
-        });
+        bad_key_spans.push(span);
     }
 }
 

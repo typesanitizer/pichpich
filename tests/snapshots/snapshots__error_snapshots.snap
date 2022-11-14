@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  × 17 errors
+  × 18 errors
 
 Error: missing-def-and-ref
 
@@ -41,6 +41,7 @@ Error: empty-attr-key-or-value
  18 │ 
  19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
     ·                  ────────
+ 20 │ 
     ╰────
 Error: empty-attr-key-or-value
 
@@ -49,6 +50,7 @@ Error: empty-attr-key-or-value
  18 │ 
  19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
     ·                            ───────
+ 20 │ 
     ╰────
 Error: empty-attr-key-or-value
 
@@ -57,6 +59,7 @@ Error: empty-attr-key-or-value
  18 │ 
  19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
     ·               ─
+ 20 │ 
     ╰────
 Error: malformed-attr
 
@@ -109,6 +112,15 @@ Error: unknown-attr-key
  18 │ 
  19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
     ·                                     ─────
+ 20 │ 
+    ╰────
+Error: unknown-attr-key
+
+  × error: found unknown attribute keys 'lol1' and 'lol2' for NOTE
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:20:1]
+ 20 │ 
+ 21 │ NOTE(def: unknown-key, lol1: lol, lol2: lol)
+    ·                        ────       ────
     ╰────
 Error: undefined-ref
 

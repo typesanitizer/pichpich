@@ -17,3 +17,5 @@ FIXME(def: isafixme2) No fixing needed lol
 See REVIEW(ref: undef-r)
 
 NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
+
+NOTE(def: unknown-key, lol1: lol, lol2: lol)
