@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  × 18 errors
+  × 20 errors
 
 Error: missing-def-and-ref
 
@@ -121,7 +121,27 @@ Error: unknown-attr-key
  20 │ 
  21 │ NOTE(def: unknown-key, lol1: lol, lol2: lol)
     ·                        ────       ────
+ 22 │ 
     ╰────
+Error: conflicting-keys
+
+  × error: key 'def' is repeated 2 times
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:22:1]
+ 22 │ 
+ 23 │ NOTE(def: abc, def: efg)
+    ·      ───       ───
+ 24 │ 
+    ╰────
+  help: keys can only be specified once per comment
+Error: conflicting-keys
+
+  × error: keys 'def' and 'ref' cannot be used simultaneously
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:24:1]
+ 24 │ 
+ 25 │ NOTE(def: x1, ref: y2)
+    ·      ───      ───
+    ╰────
+  help: keys can only be specified once per comment
 Error: undefined-ref
 
   × error: missing definition for reference to undef-n

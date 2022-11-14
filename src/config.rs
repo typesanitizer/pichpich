@@ -42,8 +42,9 @@ pub enum AppErrorCode {
     UnexpectedSpaces = 2,
     MalformedAttribute = 3,
     UnknownAttributeKey = 4,
-    UndefinedRef = 5,
-    InconsistentIdKind = 6,
+    ConflictingKeys = 5,
+    UndefinedRef = 6,
+    InconsistentIdKind = 7,
 }
 
 impl Display for AppErrorCode {
@@ -56,7 +57,7 @@ use std::fmt::{Debug, Display, Formatter};
 use AppErrorCode::*;
 use ErrorLevel::*;
 
-pub const DEFAULT_ERROR_INFO: [(AppErrorCode, ErrorLevel, &'static str, &'static str); 7] = [
+pub const DEFAULT_ERROR_INFO: [(AppErrorCode, ErrorLevel, &'static str, &'static str); 8] = [
     (MissingDefAndRef, Ignore, "missing-def-and-ref",
     "The `attribute list` is missing both 'def:' and 'ref:' keys, preventing cross-referencing."),
     (EmptyAttributeKeyOrValue, Error, "empty-attr-key-or-value",
@@ -68,6 +69,8 @@ pub const DEFAULT_ERROR_INFO: [(AppErrorCode, ErrorLevel, &'static str, &'static
      "The `attribute list` includes a field that couldn't be parsed as key: value"),
     (UnknownAttributeKey, Ignore, "unknown-attr-key",
     "The `attribute list` includes a key that is not recognized by pichpich."),
+    (ConflictingKeys, Error, "conflicting-keys",
+     "The `attribute list` either includes a key repeated multiple times, or includes both 'def' and 'ref'."),
     (UndefinedRef, Error, "undefined-ref",
     "There is no definition for the unique ID specified in the 'ref:' attribute."),
     (InconsistentIdKind, Error, "inconsistent-id-kind",

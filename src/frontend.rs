@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::config::AppErrorCode::{
-    EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef, UnknownAttributeKey,
+    ConflictingKeys, EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef,
+    UnknownAttributeKey,
 };
 use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
@@ -59,7 +60,11 @@ pub enum FrontendErrorData {
     UnknownAttributeKey {
         leading_text: &'static str, // kinda' redundant but whatever
         comment_range: SourceRange,
-        spans: Vec<Span>,
+        spans: Vec<Span>, // invariant: Vec is non-empty
+    },
+    ConflictingKeys {
+        comment_range: SourceRange,
+        spans: Vec<Span>, // invariant: Vec is non-empty
     },
 }
 
@@ -86,6 +91,23 @@ impl Display for FrontendErrorData {
                 ).collect();
                 f.write_fmt(format_args!("found unknown attribute key{1} for {0}",
                     leading_text, format_pluralized_and_list(&key_text)))
+            }
+            FrontendErrorData::ConflictingKeys { comment_range, spans } => {
+                let range = SourceRange { span: spans[0], .. comment_range.clone() };
+                let key = range.slice();
+                let all_same = spans[1..].iter().all(|span|
+                    SourceRange { span: *span, .. comment_range.clone() }.slice() == key
+                );
+                if all_same {
+                    f.write_fmt(format_args!("key '{}' is repeated {} times", key, spans.len()))
+                } else {
+                    f.write_fmt(format_args!("key{} cannot be used simultaneously",
+                        format_pluralized_and_list(
+                            &spans.iter().map(|s| format!("'{}'", SourceRange { span: *s, .. comment_range.clone() }.slice()))
+                                .collect::<Vec<_>>()
+                        )
+                    ))
+                }
             }
         }
     }
@@ -121,6 +143,7 @@ impl miette::Diagnostic for FrontendErrorData {
             }
             FrontendErrorData::MalformedAttribute { .. } => Some(Box::new(MalformedAttribute)),
             FrontendErrorData::UnknownAttributeKey { .. } => Some(Box::new(UnknownAttributeKey)),
+            FrontendErrorData::ConflictingKeys { .. } => Some(Box::new(ConflictingKeys)),
         }
     }
     fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
@@ -132,6 +155,9 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MalformedAttribute { .. } => None,
             FrontendErrorData::UnknownAttributeKey { .. } => None,
             // FIXME(def: provide-attr-hint): We should at least list out common attributes here.
+            FrontendErrorData::ConflictingKeys { .. } => {
+                Some(Box::new("keys can only be specified once per comment"))
+            }
         }
     }
     fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
@@ -150,6 +176,11 @@ impl miette::Diagnostic for FrontendErrorData {
                     .iter()
                     .map(|span| miette::LabeledSpan::new_with_span(None, *span)),
             )),
+            FrontendErrorData::ConflictingKeys { spans, .. } => Some(Box::new(
+                spans
+                    .iter()
+                    .map(|span| miette::LabeledSpan::new_with_span(None, *span)),
+            )),
         }
     }
     fn source_code(&self) -> Option<&dyn SourceCode> {
@@ -158,6 +189,7 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::EmptyAttributeKeyOrValue { range, .. } => Some(range),
             FrontendErrorData::MalformedAttribute { range } => Some(range),
             FrontendErrorData::UnknownAttributeKey { comment_range, .. } => Some(comment_range),
+            FrontendErrorData::ConflictingKeys { comment_range, .. } => Some(comment_range),
         }
     }
 }
@@ -383,6 +415,7 @@ fn populate_attrs(
     errs: &mut Vec<FrontendError>,
 ) {
     let mut bad_key_spans = Vec::new();
+    let mut key_span_map = Vec::<(&str, Vec<Span>)>::new();
     for (key, value) in good_attrs {
         use MagicCommentKindData as Kind;
         match key {
@@ -405,12 +438,27 @@ fn populate_attrs(
             },
             _ => diagnose_unknown_attr_key(error_config, base_range, key, &mut bad_key_spans),
         }
-        // TODO(def: issue-duplicate-error): Repeating an attribute is an error.
+        if let Some(_) = error_config.get_level(ConflictingKeys) {
+            let span = Span::interior_relative(base_range.slice(), key)
+                .adjust_offsets(base_range.span.start());
+            // Technically quadratic, but we should only have a few attributes.
+            if let Some(spans) = key_span_map.iter_mut().find_map(|(k, vs)| {
+                if k == &key || (key == "def" && k == &"ref") || (key == "ref" && k == &"def") {
+                    Some(vs)
+                } else {
+                    None
+                }
+            }) {
+                spans.push(span);
+            } else {
+                key_span_map.push((key, vec![span]));
+            }
+        }
     }
     if !bad_key_spans.is_empty() {
         let level = error_config
             .get_level(UnknownAttributeKey)
-            .expect("stored bad_key_spans even though UnknownAttributeKey is set to ignore");
+            .expect("filled bad_key_spans even though UnknownAttributeKey is set to ignore");
         errs.push(WithErrorLevel {
             level,
             error: FrontendErrorData::UnknownAttributeKey {
@@ -419,6 +467,24 @@ fn populate_attrs(
                 spans: bad_key_spans,
             },
         });
+    }
+    if !key_span_map.is_empty() {
+        let level = error_config
+            .get_level(ConflictingKeys)
+            .expect("filled key_span_map even though RepeatedKey is set to ignore");
+        for (_, spans) in key_span_map.into_iter() {
+            assert!(!spans.is_empty());
+            if spans.len() == 1 {
+                continue;
+            }
+            errs.push(WithErrorLevel {
+                level,
+                error: FrontendErrorData::ConflictingKeys {
+                    comment_range: base_range.clone(),
+                    spans,
+                },
+            });
+        }
     }
 }
 
