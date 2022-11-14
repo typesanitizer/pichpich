@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
-use crate::core::{MagicComment, SourceRange, SyntaxData};
+use crate::core::{MagicComment, SourceRange, Span, SyntaxData};
 use crate::frontend::{parse_attribute_list, Options};
 use crate::utils::AdjustOffsets;
 use crate::{AppError, AppErrorData};
@@ -161,14 +161,14 @@ impl miette::Diagnostic for AnalysisErrorData {
                         .contents
                         .value
                         .as_ref()
-                        .get(main_range.start_offset..main_range.end_offset)
+                        .get(main_range.span.into_range())
                         .expect("Out-of-bounds offsets stored in range"),
                 );
                 let (_, _, value_span) = map.get("ref").expect("missing ref key in comment");
                 Some(Box::new(
                     [miette::LabeledSpan::new_with_span(
                         None,
-                        value_span.clone().adjust_offsets(main_range.start_offset),
+                        value_span.clone().adjust_offsets(main_range.span.start()),
                     )]
                     .into_iter(),
                 ))
@@ -188,25 +188,8 @@ impl miette::Diagnostic for AnalysisErrorData {
     }
 }
 
-fn relative_span(base: &str, inner: &str) -> miette::SourceSpan {
-    let base_mem_range = base.as_ptr() as usize..base.as_ptr() as usize + base.len();
-    let inner_start = inner.as_ptr() as usize;
-    let inner_end = inner.as_ptr() as usize + inner.len();
-    assert!(
-        base_mem_range.contains(&inner_start),
-        "inner str {inner} not contained in base {base}"
-    );
-    assert!(
-        base_mem_range.contains(&inner_end),
-        "inner str {inner} ends after base {base}"
-    );
-    ((inner_start - base_mem_range.start)..(inner_end - base_mem_range.start)).into()
-}
-
 // Helper function to attribute list with source spans.
-fn parse_attr_list_w_spans(
-    base: &str,
-) -> HashMap<&str, (&str, miette::SourceSpan, miette::SourceSpan)> {
+fn parse_attr_list_w_spans(base: &str) -> HashMap<&str, (&str, Span, Span)> {
     let start = base
         .find('(')
         .expect("unexpected missing opening brace after parsing");
@@ -218,7 +201,14 @@ fn parse_attr_list_w_spans(
         .expect("failed to re-parse attr list")
         .1
     {
-        let present = out.insert(k, (v, relative_span(base, k), relative_span(base, v)));
+        let present = out.insert(
+            k,
+            (
+                v,
+                Span::interior_relative(base, k),
+                Span::interior_relative(base, v),
+            ),
+        );
         assert!(
             present.is_none(),
             "duplicate attr keys should've been diagnosed earlier"
