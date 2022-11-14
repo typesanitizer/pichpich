@@ -5,11 +5,12 @@
 use pichpich::config::ErrorConfig;
 use pichpich::frontend::Options;
 use pichpich::main_impl;
-use miette::GraphicalReportHandler;
+use miette::{GraphicalReportHandler, GraphicalTheme};
 
 #[test]
 fn error_snapshots() {
-    let reporter = GraphicalReportHandler::new();
+    // Avoid colors in output to make snapshot files readable in a standalone way.
+    let reporter = GraphicalReportHandler::new_themed(GraphicalTheme::unicode_nocolor());
     for entry in glob::glob("tests/snapshots/error-*").expect("failed to read pattern") {
         let path = match entry {
             Ok(p) => p,

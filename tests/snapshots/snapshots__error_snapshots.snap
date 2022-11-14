@@ -3,77 +3,77 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  [38;2;255;30;30m×[0m 7 errors
+  × 7 errors
 
-Error: [38;2;255;30;30mmissing-def-and-ref[0m
+Error: missing-def-and-ref
 
-  [38;2;255;30;30m×[0m error: missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing
-   ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:1:1]
- [2m1[0m │ NOTE(username):
-   · [38;2;246;87;248m──────────────[0m
- [2m2[0m │ FIXME(something):
+  × error: missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:1:1]
+ 1 │ NOTE(username):
+   · ──────────────
+ 2 │ FIXME(something):
    ╰────
-[38;2;106;159;181m  help: [0madd 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
-Error: [38;2;255;30;30mmissing-def-and-ref[0m
+  help: add 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
+Error: missing-def-and-ref
 
-  [38;2;255;30;30m×[0m error: missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing
-   ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:1:1]
- [2m1[0m │ NOTE(username):
- [2m2[0m │ FIXME(something):
-   · [38;2;246;87;248m────────────────[0m
- [2m3[0m │ TODO(dat guy):
+  × error: missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:1:1]
+ 1 │ NOTE(username):
+ 2 │ FIXME(something):
+   · ────────────────
+ 3 │ TODO(dat guy):
    ╰────
-[38;2;106;159;181m  help: [0madd 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
-Error: [38;2;255;30;30mmissing-def-and-ref[0m
+  help: add 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
+Error: missing-def-and-ref
 
-  [38;2;255;30;30m×[0m error: missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing
-   ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:2:1]
- [2m2[0m │ FIXME(something):
- [2m3[0m │ TODO(dat guy):
-   · [38;2;246;87;248m─────────────[0m
- [2m4[0m │ 
+  × error: missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:2:1]
+ 2 │ FIXME(something):
+ 3 │ TODO(dat guy):
+   · ─────────────
+ 4 │ 
    ╰────
-[38;2;106;159;181m  help: [0madd 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
-Error: [38;2;255;30;30mundefined-ref[0m
+  help: add 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
+Error: undefined-ref
 
-  [38;2;255;30;30m×[0m error: missing definition for reference to undef-n
-   ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:4:1]
- [2m4[0m │ 
- [2m5[0m │ See NOTE(ref: undef-n)
-   · [38;2;246;87;248m              ───────[0m
- [2m6[0m │ 
+  × error: missing definition for reference to undef-n
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:6:1]
+ 6 │ 
+ 7 │ See WARNING(ref: undef-n)
+   ·                  ───────
+ 8 │ 
    ╰────
-[38;2;106;159;181m  help: [0mdid you delete or forget to add a NOTE(def: undef-n) somewhere?
+  help: did you delete or forget to add a WARNING(def: undef-n) somewhere?
 
-Error: [38;2;255;30;30mundefined-ref[0m
+Error: undefined-ref
 
-  [38;2;255;30;30m×[0m missing definition for reference to undef-n
-   ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:6:1]
- [2m6[0m │ 
- [2m7[0m │ See WARNING(ref: undef-n)
-   · [38;2;246;87;248m                 ───────[0m
- [2m8[0m │ 
+  × missing definition for reference to undef-n
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:4:1]
+ 4 │ 
+ 5 │ See NOTE(ref: undef-n)
+   ·               ───────
+ 6 │ 
    ╰────
-[38;2;106;159;181m  help: [0mdid you delete or forget to add a WARNING(def: undef-n) somewhere?
-Error: [38;2;255;30;30mundefined-ref[0m
+  help: did you delete or forget to add a NOTE(def: undef-n) somewhere?
+Error: undefined-ref
 
-  [38;2;255;30;30m×[0m error: missing definition for reference to undef-r
-    ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:16:1]
- [2m16[0m │ 
- [2m17[0m │ See REVIEW(ref: undef-r)
-    · [38;2;246;87;248m                ───────[0m
+  × error: missing definition for reference to undef-r
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:16:1]
+ 16 │ 
+ 17 │ See REVIEW(ref: undef-r)
+    ·                 ───────
     ╰────
-[38;2;106;159;181m  help: [0mdid you delete or forget to add a REVIEW(def: undef-r) somewhere?
+  help: did you delete or forget to add a REVIEW(def: undef-r) somewhere?
 
-Error: [38;2;255;30;30mundefined-ref[0m
+Error: undefined-ref
 
-  [38;2;255;30;30m×[0m error: missing definition for reference to undef-t
-    ╭─[[38;2;92;157;255;1;4mtests/snapshots/error-basics/single-file-errors.txt[0m:8:1]
- [2m 8[0m │ 
- [2m 9[0m │ See TODO(blah, ref: undef-t, stuff)
-    · [38;2;246;87;248m                    ───────[0m
- [2m10[0m │ 
+  × error: missing definition for reference to undef-t
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:8:1]
+  8 │ 
+  9 │ See TODO(blah, ref: undef-t, stuff)
+    ·                     ───────
+ 10 │ 
     ╰────
-[38;2;106;159;181m  help: [0mdid you delete or forget to add a TODO(def: undef-t) somewhere?
+  help: did you delete or forget to add a TODO(def: undef-t) somewhere?
 
 
