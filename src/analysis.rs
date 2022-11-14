@@ -43,7 +43,7 @@ impl SymbolTable {
         let mut out = vec![];
 
         if let Some(level) = error_config.get_level(AppErrorCode::InconsistentIdKind) {
-            for (id, v) in self.id_to_comments_map.iter() {
+            for (_, v) in self.id_to_comments_map.iter() {
                 assert!(!v.is_empty());
                 if v.len() == 1 {
                     continue;
