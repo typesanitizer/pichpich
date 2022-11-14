@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  × 16 errors
+  × 17 errors
 
 Error: missing-def-and-ref
 
@@ -101,6 +101,14 @@ Error: malformed-attr
   9 │ See TODO(blah, ref: undef-t, stuff)
     ·                              ─────
  10 │ 
+    ╰────
+Error: unknown-attr-key
+
+  × error: found unknown attribute key 'https' for NOTE
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:18:1]
+ 18 │ 
+ 19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
+    ·                                     ─────
     ╰────
 Error: undefined-ref
 
