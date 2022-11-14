@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config::AppErrorCode::{EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef};
+use crate::config::AppErrorCode::{
+    EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef, UnknownAttributeKey,
+};
 use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
     MagicComment, MagicCommentKindData, SourceRange, Span, SyntaxData, WithSpan, SPECIAL_COMMENT_RE,
@@ -54,8 +56,11 @@ pub enum FrontendErrorData {
     MalformedAttribute {
         range: SourceRange,
     },
+    UnknownAttributeKey {
+        range: SourceRange,
+        comment_kind: &'static str,
+    },
 }
-
 impl Display for FrontendErrorData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self {
@@ -73,6 +78,10 @@ impl Display for FrontendErrorData {
             }
             FrontendErrorData::MalformedAttribute { .. } =>
                 f.write_str("found attribute not in 'key: value' format"),
+            FrontendErrorData::UnknownAttributeKey { range, comment_kind } =>
+                f.write_fmt(format_args!("found unknown attribute key '{}' for {}", range.slice(),
+                    // Should we pass in the kind/leading text here?
+                    comment_kind))
         }
     }
 }
@@ -87,6 +96,7 @@ impl miette::Diagnostic for FrontendErrorData {
                 Some(Box::new(EmptyAttributeKeyOrValue))
             }
             FrontendErrorData::MalformedAttribute { .. } => Some(Box::new(MalformedAttribute)),
+            FrontendErrorData::UnknownAttributeKey { .. } => Some(Box::new(UnknownAttributeKey)),
         }
     }
     fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
@@ -96,6 +106,8 @@ impl miette::Diagnostic for FrontendErrorData {
             )),
             FrontendErrorData::EmptyAttributeKeyOrValue { .. } => None,
             FrontendErrorData::MalformedAttribute { .. } => None,
+            FrontendErrorData::UnknownAttributeKey { .. } => None,
+            // FIXME(def: provide-attr-hint): We should at least list out common attributes here.
         }
     }
     fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
@@ -109,6 +121,9 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MalformedAttribute { range } => Some(Box::new(
                 [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
             )),
+            FrontendErrorData::UnknownAttributeKey { range, .. } => Some(Box::new(
+                [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
+            )),
         }
     }
     fn source_code(&self) -> Option<&dyn SourceCode> {
@@ -116,6 +131,7 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MissingId { range } => Some(range),
             FrontendErrorData::EmptyAttributeKeyOrValue { range, .. } => Some(range),
             FrontendErrorData::MalformedAttribute { range } => Some(range),
+            FrontendErrorData::UnknownAttributeKey { range, .. } => Some(range),
         }
     }
 }
@@ -295,11 +311,12 @@ fn parse_magic_comment(
     parse_end(input).expect("Expected end with ) based on regex");
     let mut magic_comment = MagicComment::default();
     magic_comment.kind = kind;
-    // TODO(def: missing-test): Add tests for different warnings/errors.
-    // TODO(def: missing-warnings): Emit warnings/errors for different cases.
+    // TODO(def: batch-errors): Maybe we should create a Vec first, and then do iterations
+    // over it for accumulating state. This would allow to easily batch errors of the same
+    // kind together.
     let mut errs = vec![];
     for kv in kv_pairs {
-        let (k, v) = match kv {
+        let (key, value) = match kv {
             Ok((k, v)) => (k, v),
             Err(bad_attr) => {
                 diagnose_bad_attribute_errors(error_config, base_range, bad_attr, &mut errs);
@@ -307,25 +324,45 @@ fn parse_magic_comment(
             }
         };
         use MagicCommentKindData as Kind;
-        // TODO(def: issue-duplicate-error): Repeating an attribute is an error.
-        if k == "def" {
-            magic_comment.id = v.to_owned();
-            magic_comment.is_def = true;
-        } else if k == "ref" {
-            magic_comment.id = v.to_owned();
-            magic_comment.is_def = false;
-        } else if k == "issue" {
-            match &mut magic_comment.kind {
-                Kind::Todo { issue } => *issue = Some(v.to_owned()),
-                Kind::Fixme { issue } => *issue = Some(v.to_owned()),
-                Kind::Note | Kind::Warning | Kind::Review { .. } => {}
+        match key {
+            "def" | "ref" => {
+                magic_comment.id = value.to_owned();
+                magic_comment.is_def = key == "def";
             }
-        } else if k == "from" {
-            match &mut magic_comment.kind {
-                Kind::Review { reviewer_id } => *reviewer_id = Some(v.to_owned()),
-                Kind::Note | Kind::Warning | Kind::Todo { .. } | Kind::Fixme { .. } => {}
-            }
+            "issue" => match &mut magic_comment.kind {
+                Kind::Todo { issue } => *issue = Some(value.to_owned()),
+                Kind::Fixme { issue } => *issue = Some(value.to_owned()),
+                Kind::Note | Kind::Warning | Kind::Review { .. } => {
+                    diagnose_unknown_attr_key(
+                        error_config,
+                        base_range,
+                        key,
+                        &magic_comment.kind,
+                        &mut errs,
+                    );
+                }
+            },
+            "from" => match &mut magic_comment.kind {
+                Kind::Review { reviewer_id } => *reviewer_id = Some(value.to_owned()),
+                Kind::Note | Kind::Warning | Kind::Todo { .. } | Kind::Fixme { .. } => {
+                    diagnose_unknown_attr_key(
+                        error_config,
+                        base_range,
+                        key,
+                        &magic_comment.kind,
+                        &mut errs,
+                    );
+                }
+            },
+            _ => diagnose_unknown_attr_key(
+                error_config,
+                base_range,
+                key,
+                &magic_comment.kind,
+                &mut errs,
+            ),
         }
+        // TODO(def: issue-duplicate-error): Repeating an attribute is an error.
     }
     if magic_comment.id.is_empty() {
         if let Some(level) = error_config.get_level(AppErrorCode::MissingDefAndRef) {
@@ -342,6 +379,32 @@ fn parse_magic_comment(
         return Ok(magic_comment);
     }
     return Err(errs);
+}
+
+fn diagnose_unknown_attr_key(
+    error_config: &Arc<ErrorConfig>,
+    base_range: &SourceRange,
+    key: &str,
+    kind: &MagicCommentKindData,
+    errs: &mut Vec<FrontendError>,
+) {
+    // TODO(def: special-case-urls): If you add a URL field directly, you'll get a not-so-great
+    // error, because (e.g.) 'https' will be interpreted as the key. We should emit a special
+    // diagnostic in that situation.
+    if let Some(level) = error_config.get_level(AppErrorCode::UnknownAttributeKey) {
+        let span = Span::interior_relative(base_range.slice(), key)
+            .adjust_offsets(base_range.span.start());
+        errs.push(WithErrorLevel {
+            level,
+            error: FrontendErrorData::UnknownAttributeKey {
+                range: SourceRange {
+                    span,
+                    ..base_range.clone()
+                },
+                comment_kind: kind.leading_text(),
+            },
+        });
+    }
 }
 
 fn diagnose_bad_attribute_errors(
