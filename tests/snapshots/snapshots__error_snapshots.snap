@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  × 14 errors
+  × 16 errors
 
 Error: missing-def-and-ref
 
@@ -133,5 +133,24 @@ Error: undefined-ref
  18 │ 
     ╰────
   help: did you delete or forget to add a REVIEW(def: undef-r) somewhere?
+Error: inconsistent-id-kind
 
+  × error: used in a NOTE here
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:4:1]
+ 4 │ 
+ 5 │ See NOTE(ref: undef-n)
+   ·               ───────
+ 6 │ 
+   ╰────
+  help: consistently use this id in a NOTE or a WARNING
+
+Error: inconsistent-id-kind
+
+  × used in a WARNING here
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:6:1]
+ 6 │ 
+ 7 │ See WARNING(ref: undef-n)
+   ·                  ───────
+ 8 │ 
+   ╰────
 
