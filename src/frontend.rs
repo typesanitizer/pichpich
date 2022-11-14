@@ -56,30 +56,6 @@ pub enum FrontendErrorData {
     },
 }
 
-impl AdjustOffsets for FrontendErrorData {
-    fn adjust_offsets(self, base_offset: usize) -> FrontendErrorData {
-        match self {
-            FrontendErrorData::MissingId { range } => FrontendErrorData::MissingId {
-                range: range.adjust_offsets(base_offset),
-            },
-            FrontendErrorData::EmptyAttributeKeyOrValue {
-                range,
-                empty_key,
-                empty_value,
-            } => FrontendErrorData::EmptyAttributeKeyOrValue {
-                empty_key,
-                empty_value,
-                range: range.adjust_offsets(base_offset),
-            },
-            FrontendErrorData::MalformedAttribute { range } => {
-                FrontendErrorData::MalformedAttribute {
-                    range: range.adjust_offsets(base_offset),
-                }
-            }
-        }
-    }
-}
-
 impl Display for FrontendErrorData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self {
