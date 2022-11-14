@@ -5,7 +5,26 @@
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use pichpich::config::ErrorConfig;
 use pichpich::frontend::Options;
-use pichpich::main_impl;
+use pichpich::{frontend, main_impl};
+
+#[test]
+fn internal_state_snapshots() {
+    for entry in glob::glob("tests/snapshots/internal-state-*").expect("failed to read pattern") {
+        let path = match entry {
+            Ok(p) => p,
+            Err(e) => {
+                assert!(false, "ill-formed result from glob {}", e);
+                unreachable!()
+            }
+        };
+        let opts = Options {
+            root: path.to_owned(),
+            error_config: ErrorConfig::default(),
+        };
+        let result = frontend::gather(&opts);
+        insta::assert_snapshot!(result.0.format_snapshot())
+    }
+}
 
 #[test]
 fn error_snapshots() {

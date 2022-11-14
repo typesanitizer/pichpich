@@ -11,6 +11,8 @@ use lazy_static::lazy_static;
 use miette::MietteError;
 use regex::Regex;
 use serde::ser::SerializeStruct;
+use std::collections::VecDeque;
+use std::fmt::Write;
 use std::ops::Range;
 use std::{collections::HashMap, hash::Hash, path::PathBuf, sync::Arc};
 
@@ -84,7 +86,7 @@ impl Span {
         self._start <= other && other < self._end
     }
     pub fn contains_span(&self, other: Span) -> bool {
-        self.contains(other._start) && self.contains(other._end)
+        self._start <= other._start && other._end <= self._end
     }
     pub(crate) fn interior_relative(base: &str, inner: &str) -> Span {
         let base_mem_range = base.as_ptr() as usize..base.as_ptr() as usize + base.len();
@@ -253,5 +255,73 @@ impl SyntaxData {
             res.merge(data);
         }
         return res;
+    }
+    fn format_snapshot_file(
+        path: &Arc<PathBuf>,
+        content: &Arc<String>,
+        comments: Vec<WithSpan<Arc<MagicComment>>>,
+    ) -> String {
+        let mut worklist = VecDeque::<WithSpan<_>>::new();
+        let mut comment_index = 0;
+        let mut buf = String::new();
+        for (i, line) in content.lines().enumerate() {
+            buf.write_str(line).unwrap();
+            buf.write_char('\n').unwrap();
+            let line_span = Span::interior_relative(content.as_str(), line);
+            while let Some(pending) = worklist.pop_front() {
+                if !line_span.contains(pending.span.end()) {
+                    worklist.push_front(pending);
+                    break;
+                }
+                buf.write_str(&" ".repeat(pending.span.end() - line_span.start()))
+                    .unwrap();
+                buf.write_fmt(format_args!("^ end {:?}\n", pending.value))
+                    .unwrap();
+            }
+            while comment_index != comments.len() {
+                let comment = &comments[comment_index];
+                let num_space = comment.span.start() - line_span.start();
+                if line_span.contains_span(comment.span) {
+                    buf.write_str(&" ".repeat(num_space)).unwrap();
+                    buf.write_str(&"^".repeat(comment.span.len())).unwrap();
+                    buf.write_fmt(format_args!(" {:?}\n", comment.value))
+                        .unwrap();
+                    comment_index += 1;
+                } else if line_span.contains(comment.span.start()) {
+                    buf.write_str(&" ".repeat(num_space)).unwrap();
+                    buf.write_fmt(format_args!("^ start {:?}\n", comment.value))
+                        .unwrap();
+                    worklist.push_back(comment.clone());
+                    comment_index += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+        assert!(worklist.is_empty());
+        return buf;
+    }
+    pub fn format_snapshot(&self) -> String {
+        let mut files = vec![];
+        for (path, content) in self.path_to_content_map.iter() {
+            let mut comments = self
+                .path_to_comment_map
+                .get(path)
+                .expect(&format!(
+                    "missing comments for recorded path {}",
+                    path.to_string_lossy()
+                ))
+                .clone();
+            comments.sort();
+            let file_snapshot = Self::format_snapshot_file(path, content, comments);
+            files.push((path.clone(), file_snapshot));
+        }
+        files.sort();
+        let mut out = String::new();
+        for (_, s) in files.into_iter() {
+            out.push_str(&s);
+            out.write_char('\n').unwrap();
+        }
+        return out;
     }
 }

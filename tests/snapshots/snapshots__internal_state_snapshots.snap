@@ -1,0 +1,15 @@
+---
+source: tests/snapshots.rs
+expression: result.0.format_snapshot()
+---
+NOTE(ref: abc)
+^^^^^^^^^^^^^^ MagicComment { is_def: false, id: "abc", author: None, kind: Note }
+   NOTE(def: blah)
+   ^^^^^^^^^^^^^^^ MagicComment { is_def: true, id: "blah", author: None, kind: Note }
+FIXME(def: x, issue: aa)
+^^^^^^^^^^^^^^^^^^^^^^^^ MagicComment { is_def: true, id: "x", author: None, kind: Fixme { issue: Some("aa") } }
+
+  REVIEW(def: z, from: ss)
+  ^^^^^^^^^^^^^^^^^^^^^^^^ MagicComment { is_def: true, id: "z", author: None, kind: Review { reviewer_id: Some("ss") } }
+
+

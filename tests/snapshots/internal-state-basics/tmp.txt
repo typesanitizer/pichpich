@@ -1,0 +1,5 @@
+NOTE(ref: abc)
+   NOTE(def: blah)
+FIXME(def: x, issue: aa)
+
+  REVIEW(def: z, from: ss)
