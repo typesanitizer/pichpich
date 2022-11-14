@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config::AppErrorCode::MissingDefAndRef;
+use crate::config::AppErrorCode::{EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef};
 use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
     MagicComment, MagicCommentKindData, SourceRange, Span, SyntaxData, WithSpan, SPECIAL_COMMENT_RE,
@@ -39,9 +39,21 @@ pub struct Options {
 
 pub type FrontendError = WithErrorLevel<FrontendErrorData>;
 
+// Sorting will group errors by kind instead of range... bad idea?
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FrontendErrorData {
-    MissingId { range: SourceRange },
+    MissingId {
+        range: SourceRange,
+    },
+    // Invariant: at least one of empty_key or empty_value must be true
+    EmptyAttributeKeyOrValue {
+        empty_key: bool,
+        empty_value: bool,
+        range: SourceRange,
+    },
+    MalformedAttribute {
+        range: SourceRange,
+    },
 }
 
 impl AdjustOffsets for FrontendErrorData {
@@ -50,6 +62,20 @@ impl AdjustOffsets for FrontendErrorData {
             FrontendErrorData::MissingId { range } => FrontendErrorData::MissingId {
                 range: range.adjust_offsets(base_offset),
             },
+            FrontendErrorData::EmptyAttributeKeyOrValue {
+                range,
+                empty_key,
+                empty_value,
+            } => FrontendErrorData::EmptyAttributeKeyOrValue {
+                empty_key,
+                empty_value,
+                range: range.adjust_offsets(base_offset),
+            },
+            FrontendErrorData::MalformedAttribute { range } => {
+                FrontendErrorData::MalformedAttribute {
+                    range: range.adjust_offsets(base_offset),
+                }
+            }
         }
     }
 }
@@ -59,6 +85,18 @@ impl Display for FrontendErrorData {
         match &self {
             FrontendErrorData::MissingId { .. } =>
                 f.write_str("missing both 'def:' and 'ref:' keys in magic comment; this will prevent cross-referencing"),
+            FrontendErrorData::EmptyAttributeKeyOrValue { empty_key, empty_value, range } => {
+                match (empty_key, empty_value) {
+                    (true, true) => f.write_str("missing key and value around ':'"),
+                    (true, false) => f.write_str("missing key before ':'"),
+                    (false, true) => f.write_fmt(format_args!("missing value after ':' for key {}",
+                        range.slice().trim_end_matches(':').trim()
+                    )),
+                    (false, false) => unreachable!("either empty_key or empty_value should be true"),
+                }
+            }
+            FrontendErrorData::MalformedAttribute { .. } =>
+                f.write_str("found attribute not in 'key: value' format"),
         }
     }
 }
@@ -69,6 +107,10 @@ impl miette::Diagnostic for FrontendErrorData {
     fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
         match &self {
             FrontendErrorData::MissingId { .. } => Some(Box::new(MissingDefAndRef)),
+            FrontendErrorData::EmptyAttributeKeyOrValue { .. } => {
+                Some(Box::new(EmptyAttributeKeyOrValue))
+            }
+            FrontendErrorData::MalformedAttribute { .. } => Some(Box::new(MalformedAttribute)),
         }
     }
     fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
@@ -76,6 +118,8 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MissingId { .. } => Some(Box::new(
                 "add 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment",
             )),
+            FrontendErrorData::EmptyAttributeKeyOrValue { .. } => None,
+            FrontendErrorData::MalformedAttribute { .. } => None,
         }
     }
     fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
@@ -83,11 +127,19 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MissingId { range } => Some(Box::new(
                 [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
             )),
+            FrontendErrorData::EmptyAttributeKeyOrValue { range, .. } => Some(Box::new(
+                [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
+            )),
+            FrontendErrorData::MalformedAttribute { range } => Some(Box::new(
+                [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
+            )),
         }
     }
     fn source_code(&self) -> Option<&dyn SourceCode> {
         match &self {
             FrontendErrorData::MissingId { range } => Some(range),
+            FrontendErrorData::EmptyAttributeKeyOrValue { range, .. } => Some(range),
+            FrontendErrorData::MalformedAttribute { range } => Some(range),
         }
     }
 }
@@ -229,7 +281,7 @@ impl FileVisitor {
                     value: contents.clone(),
                 },
             };
-            match parse_magic_comment(re_match.as_str(), &self.error_config, &range) {
+            match parse_magic_comment(&self.error_config, &range) {
                 Err(fe_errors) => {
                     self.errors.extend(fe_errors.into_iter());
                 }
@@ -257,11 +309,10 @@ impl FileVisitor {
 // Parsing logic
 
 fn parse_magic_comment(
-    input: &str,
     error_config: &Arc<ErrorConfig>,
     base_range: &SourceRange,
 ) -> Result<MagicComment, Vec<FrontendError>> {
-    let _original_input_len = input.len();
+    let input = base_range.slice();
     let (input, kind) = parse_kind_keyword(input).expect("Incorrect prefix matching in regex");
     let (input, kv_pairs) = delimited(nom_char('('), parse_attribute_list, nom_char(')'))(input)
         .expect("Mismatch between regex & parser combinator causing internal failure");
@@ -271,7 +322,14 @@ fn parse_magic_comment(
     // TODO(def: missing-test): Add tests for different warnings/errors.
     // TODO(def: missing-warnings): Emit warnings/errors for different cases.
     let mut errs = vec![];
-    for (k, v) in kv_pairs {
+    for kv in kv_pairs {
+        let (k, v) = match kv {
+            Ok((k, v)) => (k, v),
+            Err(bad_attr) => {
+                diagnose_bad_attribute_errors(error_config, base_range, bad_attr, &mut errs);
+                continue;
+            }
+        };
         use MagicCommentKindData as Kind;
         // TODO(def: issue-duplicate-error): Repeating an attribute is an error.
         if k == "def" {
@@ -310,6 +368,43 @@ fn parse_magic_comment(
     return Err(errs);
 }
 
+fn diagnose_bad_attribute_errors(
+    error_config: &Arc<ErrorConfig>,
+    base_range: &SourceRange,
+    bad_attr: &str,
+    errs: &mut Vec<FrontendError>,
+) {
+    let empty_key = bad_attr.starts_with(':');
+    let empty_value = bad_attr.ends_with(':');
+    let span = Span::interior_relative(base_range.slice(), bad_attr)
+        .adjust_offsets(base_range.span.start());
+    if empty_key || empty_value {
+        if let Some(level) = error_config.get_level(EmptyAttributeKeyOrValue) {
+            errs.push(WithErrorLevel {
+                level,
+                error: FrontendErrorData::EmptyAttributeKeyOrValue {
+                    empty_key,
+                    empty_value,
+                    range: SourceRange {
+                        span,
+                        ..base_range.clone()
+                    },
+                },
+            });
+        }
+    } else if let Some(level) = error_config.get_level(MalformedAttribute) {
+        errs.push(WithErrorLevel {
+            level,
+            error: FrontendErrorData::MalformedAttribute {
+                range: SourceRange {
+                    span,
+                    ..base_range.clone()
+                },
+            },
+        });
+    }
+}
+
 fn parse_kind_keyword(input: &str) -> IResult<&str, MagicCommentKindData> {
     alt((
         map(tag("NOTE"), |_| MagicCommentKindData::Note),
@@ -336,12 +431,12 @@ mod tests {
 
 pub(crate) fn parse_attribute_list(
     input: &str,
-) -> IResult<&str, impl Iterator<Item = (&str, &str)>> {
+) -> IResult<&str, impl Iterator<Item = Result<(&str, &str), &str>>> {
     let (input, v) = separated_list0(
         nom_char(','),
         alt((map(parse_attribute, Ok), map(parse_attr_value, Err))),
     )(input)?;
-    return Ok((input, v.into_iter().filter_map(|kv| kv.ok())));
+    return Ok((input, v.into_iter()));
 }
 
 fn parse_end(input: &str) -> IResult<&str, &str> {

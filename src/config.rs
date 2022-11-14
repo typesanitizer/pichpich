@@ -40,9 +40,10 @@ pub enum AppErrorCode {
     MissingDefAndRef = 0,
     EmptyAttributeKeyOrValue = 1,
     UnexpectedSpaces = 2,
-    UnknownAttributeKey = 3,
-    UndefinedRef = 4,
-    InconsistentIdKind = 5,
+    MalformedAttribute = 3,
+    UnknownAttributeKey = 4,
+    UndefinedRef = 5,
+    InconsistentIdKind = 6,
 }
 
 impl Display for AppErrorCode {
@@ -55,14 +56,16 @@ use std::fmt::{Debug, Display, Formatter};
 use AppErrorCode::*;
 use ErrorLevel::*;
 
-pub const DEFAULT_ERROR_INFO: [(AppErrorCode, ErrorLevel, &'static str, &'static str); 6] = [
+pub const DEFAULT_ERROR_INFO: [(AppErrorCode, ErrorLevel, &'static str, &'static str); 7] = [
     (MissingDefAndRef, Ignore, "missing-def-and-ref",
     "The `attribute list` is missing both 'def:' and 'ref:' keys, preventing cross-referencing."),
     (EmptyAttributeKeyOrValue, Error, "empty-attr-key-or-value",
-    "The `attribute list` is keys and/or values which are empty."),
+    "The `attribute list` contains keys and/or values which are empty."),
     (UnexpectedSpaces, Warn, "spaces-in-attr-key-or-value",
      "The `attribute list` includes keys and/or values which use whitespace, without explicit \
      surrounding quotes."),
+    (MalformedAttribute, Ignore, "malformed-attr",
+     "The `attribute list` includes a field that couldn't be parsed as key: value"),
     (UnknownAttributeKey, Ignore, "unknown-attr-key",
     "The `attribute list` includes a key that is not recognized by pichpich."),
     (UndefinedRef, Error, "undefined-ref",

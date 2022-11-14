@@ -200,6 +200,7 @@ fn parse_attr_list_w_spans(base: &str) -> HashMap<&str, (&str, Span, Span)> {
     for (k, v) in parse_attribute_list(attr_list_text)
         .expect("failed to re-parse attr list")
         .1
+        .filter_map(|res| res.ok())
     {
         let present = out.insert(
             k,

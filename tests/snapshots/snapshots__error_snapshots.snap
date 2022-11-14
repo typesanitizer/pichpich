@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  × 7 errors
+  × 14 errors
 
 Error: missing-def-and-ref
 
@@ -34,6 +34,74 @@ Error: missing-def-and-ref
  4 │ 
    ╰────
   help: add 'def: unique-id' or a 'ref: unique-id' to define/reference a magic comment
+Error: empty-attr-key-or-value
+
+  × error: missing value after ':' for key novalue
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:18:1]
+ 18 │ 
+ 19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
+    ·                  ────────
+    ╰────
+Error: empty-attr-key-or-value
+
+  × error: missing key before ':'
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:18:1]
+ 18 │ 
+ 19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
+    ·                            ───────
+    ╰────
+Error: empty-attr-key-or-value
+
+  × error: missing key and value around ':'
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:18:1]
+ 18 │ 
+ 19 │ NOTE(def: ok, :, novalue:, : nokey, https://lol.cat)
+    ·               ─
+    ╰────
+Error: malformed-attr
+
+  × error: found attribute not in 'key: value' format
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:1:1]
+ 1 │ NOTE(username):
+   ·      ────────
+ 2 │ FIXME(something):
+   ╰────
+Error: malformed-attr
+
+  × error: found attribute not in 'key: value' format
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:1:1]
+ 1 │ NOTE(username):
+ 2 │ FIXME(something):
+   ·       ─────────
+ 3 │ TODO(dat guy):
+   ╰────
+Error: malformed-attr
+
+  × error: found attribute not in 'key: value' format
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:2:1]
+ 2 │ FIXME(something):
+ 3 │ TODO(dat guy):
+   ·      ───────
+ 4 │ 
+   ╰────
+Error: malformed-attr
+
+  × error: found attribute not in 'key: value' format
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:8:1]
+  8 │ 
+  9 │ See TODO(blah, ref: undef-t, stuff)
+    ·          ────
+ 10 │ 
+    ╰────
+Error: malformed-attr
+
+  × error: found attribute not in 'key: value' format
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:8:1]
+  8 │ 
+  9 │ See TODO(blah, ref: undef-t, stuff)
+    ·                              ─────
+ 10 │ 
+    ╰────
 Error: undefined-ref
 
   × error: missing definition for reference to undef-n
@@ -62,18 +130,8 @@ Error: undefined-ref
  16 │ 
  17 │ See REVIEW(ref: undef-r)
     ·                 ───────
+ 18 │ 
     ╰────
   help: did you delete or forget to add a REVIEW(def: undef-r) somewhere?
-
-Error: undefined-ref
-
-  × error: missing definition for reference to undef-t
-    ╭─[tests/snapshots/error-basics/single-file-errors.txt:8:1]
-  8 │ 
-  9 │ See TODO(blah, ref: undef-t, stuff)
-    ·                     ───────
- 10 │ 
-    ╰────
-  help: did you delete or forget to add a TODO(def: undef-t) somewhere?
 
 

@@ -192,6 +192,11 @@ impl SourceRange {
             .expect("invalid end offset");
         return bytes.iter().rev().take_while(|c| **c != b'\n').count();
     }
+    pub(crate) fn slice(&self) -> &str {
+        self.contents
+            .get(self.span.into_range())
+            .expect("stored invalid offsets")
+    }
 }
 
 impl miette::SourceCode for SourceRange {
@@ -257,14 +262,13 @@ impl SyntaxData {
         return res;
     }
     fn format_snapshot_file(
-        path: &Arc<PathBuf>,
         content: &Arc<String>,
         comments: Vec<WithSpan<Arc<MagicComment>>>,
     ) -> String {
         let mut worklist = VecDeque::<WithSpan<_>>::new();
         let mut comment_index = 0;
         let mut buf = String::new();
-        for (i, line) in content.lines().enumerate() {
+        for line in content.lines() {
             buf.write_str(line).unwrap();
             buf.write_char('\n').unwrap();
             let line_span = Span::interior_relative(content.as_str(), line);
@@ -313,7 +317,7 @@ impl SyntaxData {
                 ))
                 .clone();
             comments.sort();
-            let file_snapshot = Self::format_snapshot_file(path, content, comments);
+            let file_snapshot = Self::format_snapshot_file(content, comments);
             files.push((path.clone(), file_snapshot));
         }
         files.sort();
