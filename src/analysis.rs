@@ -8,6 +8,7 @@ use crate::frontend::{parse_attribute_list, Options};
 use crate::utils::AdjustOffsets;
 use crate::{AppError, AppErrorData};
 use miette::Diagnostic;
+use std::fmt::Write;
 use std::{
     collections::hash_map::Entry,
     collections::{BTreeSet, HashMap},
@@ -41,12 +42,31 @@ impl SymbolTable {
     fn analyse(&self, error_config: &ErrorConfig) -> BTreeSet<AppError> {
         let mut out = vec![];
 
-        if let Some(_level) = error_config.get_level(AppErrorCode::InconsistentIdKind) {
-            // TODO(def: diagnose-inconsistent-kinds)
+        if let Some(level) = error_config.get_level(AppErrorCode::InconsistentIdKind) {
+            for (id, v) in self.id_to_comments_map.iter() {
+                assert!(!v.is_empty());
+                if v.len() == 1 {
+                    continue;
+                }
+                let n_unique = v
+                    .iter()
+                    .map(|(mc, _)| mc.kind.leading_text())
+                    .collect::<BTreeSet<_>>()
+                    .len();
+                if n_unique == 1 {
+                    continue;
+                }
+                let mut data = v.clone();
+                data.sort();
+                out.push(WithErrorLevel {
+                    level,
+                    error: AnalysisErrorData::new_inconsistent_kind(data),
+                })
+            }
         }
 
         if let Some(level) = error_config.get_level(AppErrorCode::UndefinedRef) {
-            for (_id, v) in self.id_to_comments_map.iter() {
+            for (_, v) in self.id_to_comments_map.iter() {
                 if v.iter().any(|(mc, _)| mc.is_def) {
                     continue;
                 }
@@ -73,8 +93,6 @@ pub fn run(options: &Options, data: SyntaxData) -> BTreeSet<AppError> {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AnalysisErrorData {
     UndefinedRef {
-        // data: Vec<(Arc<MagicComment>, Vec<SourceRange>)>,
-        // hack_storage: Option<Rc<RefCell<AnalysisErrorData>>>,
         main_comment: Arc<MagicComment>,
         main_range: SourceRange,
         // Create this vector ahead-of-time, instead of during error emission, because miette's
@@ -82,38 +100,57 @@ pub enum AnalysisErrorData {
         // error. So just storing the data in a flat vector and iterating over it later
         // (to make and emit diagnostics on the fly) is not possible because that will entail
         // constructing temporaries which will have a shorter lifetime than the error.
-        related: Option<Box<Vec<AnalysisErrorData>>>,
+        related: Vec<AnalysisErrorData>,
+    },
+    InconsistentKind {
+        main_comment: Arc<MagicComment>,
+        main_range: SourceRange,
+        // Invariant: The Vec only contains InconsistentKind elements
+        related: Vec<AnalysisErrorData>,
     },
 }
 
 impl AnalysisErrorData {
-    fn new_undefined_ref(data: Vec<(Arc<MagicComment>, Vec<SourceRange>)>) -> AnalysisErrorData {
+    fn new_from_data(
+        data: Vec<(Arc<MagicComment>, Vec<SourceRange>)>,
+        f: &dyn Fn(Arc<MagicComment>, SourceRange, Vec<AnalysisErrorData>) -> AnalysisErrorData,
+    ) -> AnalysisErrorData {
         let main_comment = data[0].0.clone();
         let main_range = data[0].1[0].clone();
         let first_ranges = data[0].1.clone();
-        let related = Some(Box::new(
-            first_ranges
-                .into_iter()
-                .skip(1)
-                .map(|r| (main_comment.clone(), r))
-                .chain(
-                    data.into_iter()
-                        .skip(1)
-                        .map(|(mc, rv)| rv.into_iter().map(move |r| (mc.clone(), r)))
-                        .flatten(),
-                )
-                .map(|(c, r)| AnalysisErrorData::UndefinedRef {
-                    main_comment: c,
-                    main_range: r,
-                    related: None,
-                })
-                .collect(),
-        ));
-        return AnalysisErrorData::UndefinedRef {
-            main_comment,
-            main_range,
-            related,
-        };
+        let related = first_ranges
+            .into_iter()
+            .skip(1)
+            .map(|r| (main_comment.clone(), r))
+            .chain(
+                data.into_iter()
+                    .skip(1)
+                    .map(|(mc, rv)| rv.into_iter().map(move |r| (mc.clone(), r)))
+                    .flatten(),
+            )
+            .map(|(c, r)| f(c, r, vec![]))
+            .collect();
+        return f(main_comment, main_range, related);
+    }
+    fn new_undefined_ref(data: Vec<(Arc<MagicComment>, Vec<SourceRange>)>) -> AnalysisErrorData {
+        AnalysisErrorData::new_from_data(data, &|main_comment, main_range, related| {
+            AnalysisErrorData::UndefinedRef {
+                main_comment,
+                main_range,
+                related,
+            }
+        })
+    }
+    fn new_inconsistent_kind(
+        data: Vec<(Arc<MagicComment>, Vec<SourceRange>)>,
+    ) -> AnalysisErrorData {
+        AnalysisErrorData::new_from_data(data, &|main_comment, main_range, related| {
+            AnalysisErrorData::InconsistentKind {
+                main_comment,
+                main_range,
+                related,
+            }
+        })
     }
 }
 
@@ -124,16 +161,44 @@ impl Display for AnalysisErrorData {
                 "missing definition for reference to {}",
                 main_comment.id
             )),
+            AnalysisErrorData::InconsistentKind { main_comment, .. } => f.write_fmt(format_args!(
+                "used in {} {} here",
+                article_for(main_comment.kind.leading_text()),
+                main_comment.kind.leading_text(),
+            )),
         }
     }
 }
 
 impl Error for AnalysisErrorData {}
 
+fn format_or_list(v: &[String]) -> String {
+    let mut buf = String::new();
+    assert!(v.len() >= 2);
+    for i in 0..v.len() - 2 {
+        buf.write_str(&v[i]).unwrap();
+        buf.write_str(", ").unwrap();
+    }
+    buf.write_str(&v[v.len() - 2]).unwrap();
+    buf.write_str(" or ").unwrap();
+    buf.write_str(&v[v.len() - 1]).unwrap();
+    return buf;
+}
+
+fn article_for(s: &str) -> &'static str {
+    if s.starts_with(|c: char| "AEIOU".contains(c.to_ascii_uppercase())) {
+        return "an";
+    }
+    return "a";
+}
+
 impl miette::Diagnostic for AnalysisErrorData {
     fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
         match &self {
             AnalysisErrorData::UndefinedRef { .. } => Some(Box::new(AppErrorCode::UndefinedRef)),
+            AnalysisErrorData::InconsistentKind { .. } => {
+                Some(Box::new(AppErrorCode::InconsistentIdKind))
+            }
         }
     }
 
@@ -144,12 +209,39 @@ impl miette::Diagnostic for AnalysisErrorData {
                 main_comment.kind.leading_text(),
                 main_comment.id,
             ))),
+            AnalysisErrorData::InconsistentKind {
+                main_comment,
+                related,
+                ..
+            } => {
+                if related.len() > 0 {
+                    let kinds: Vec<String> = [main_comment.kind.leading_text()]
+                        .into_iter()
+                        .chain(related.iter().map(|aed| match aed {
+                            AnalysisErrorData::InconsistentKind {
+                                main_comment: mc, ..
+                            } => mc.kind.leading_text(),
+                            _ => unreachable!("InconsistentKind error contains some other child"),
+                        }))
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .map(|s| format!("{} {}", article_for(s), s))
+                        .collect();
+                    Some(Box::new(format!(
+                        "consistently use this id in {}",
+                        format_or_list(&kinds)
+                    )))
+                } else {
+                    None
+                }
+            }
         }
     }
 
     fn source_code(&self) -> Option<&dyn miette::SourceCode> {
         match &self {
             AnalysisErrorData::UndefinedRef { main_range, .. } => Some(main_range),
+            AnalysisErrorData::InconsistentKind { main_range, .. } => Some(main_range),
         }
     }
 
@@ -164,7 +256,33 @@ impl miette::Diagnostic for AnalysisErrorData {
                         .get(main_range.span.into_range())
                         .expect("Out-of-bounds offsets stored in range"),
                 );
-                let (_, _, value_span) = map.get("ref").expect("missing ref key in comment");
+                let (_, _, value_span) = map.get("ref").expect(&format!(
+                    "missing ref key in comment {:?}",
+                    main_range.slice()
+                ));
+                Some(Box::new(
+                    [miette::LabeledSpan::new_with_span(
+                        None,
+                        value_span.clone().adjust_offsets(main_range.span.start()),
+                    )]
+                    .into_iter(),
+                ))
+            }
+            AnalysisErrorData::InconsistentKind { main_range, .. } => {
+                let map = parse_attr_list_w_spans(
+                    main_range
+                        .contents
+                        .value
+                        .as_ref()
+                        .get(main_range.span.into_range())
+                        .expect("Out-of-bounds offsets stored in range"),
+                );
+                let (_, _, value_span) = map.get("ref").unwrap_or_else(|| {
+                    map.get("def").expect(&format!(
+                        "missing def or ref key in comment {:?}",
+                        main_range.slice()
+                    ))
+                });
                 Some(Box::new(
                     [miette::LabeledSpan::new_with_span(
                         None,
@@ -179,8 +297,14 @@ impl miette::Diagnostic for AnalysisErrorData {
     fn related(&self) -> Option<Box<dyn Iterator<Item = &dyn Diagnostic> + '_>> {
         match &self {
             AnalysisErrorData::UndefinedRef { related, .. } => {
-                if let Some(p) = related {
-                    return Some(Box::new(p.iter().map(|v| v as &dyn Diagnostic)));
+                if !related.is_empty() {
+                    return Some(Box::new(related.iter().map(|v| v as &dyn Diagnostic)));
+                }
+                return None;
+            }
+            AnalysisErrorData::InconsistentKind { related, .. } => {
+                if !related.is_empty() {
+                    return Some(Box::new(related.iter().map(|v| v as &dyn Diagnostic)));
                 }
                 return None;
             }
