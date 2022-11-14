@@ -5,11 +5,11 @@
 use crate::config::AppErrorCode::MissingDefAndRef;
 use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
-    MagicComment, MagicCommentKindData, SourceRange, SyntaxData, SPECIAL_COMMENT_RE,
+    MagicComment, MagicCommentKindData, SourceRange, Span, SyntaxData, WithSpan, SPECIAL_COMMENT_RE,
 };
 use crate::utils::AdjustOffsets;
 use crate::{utils, AppError, AppErrorData};
-use miette::{LabeledSpan, SourceCode};
+use miette::SourceCode;
 use nom::{
     branch::alt,
     bytes::{complete::is_not, complete::tag},
@@ -78,18 +78,11 @@ impl miette::Diagnostic for FrontendErrorData {
             )),
         }
     }
-    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
         match &self {
-            FrontendErrorData::MissingId { range } => {
-                let _r = range.start_offset..range.end_offset;
-                Some(Box::new(
-                    [LabeledSpan::new_with_span(
-                        None,
-                        range.start_offset..range.end_offset,
-                    )]
-                    .into_iter(),
-                ))
-            }
+            FrontendErrorData::MissingId { range } => Some(Box::new(
+                [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
+            )),
         }
     }
     fn source_code(&self) -> Option<&dyn SourceCode> {
@@ -231,8 +224,7 @@ impl FileVisitor {
         for re_match in SPECIAL_COMMENT_RE.find_iter(&contents) {
             let range = SourceRange {
                 path: path.clone(),
-                start_offset: re_match.start(),
-                end_offset: re_match.end(),
+                span: Span::new(re_match.start(), re_match.end()),
                 contents: utils::AllEquivalent {
                     value: contents.clone(),
                 },
@@ -242,6 +234,7 @@ impl FileVisitor {
                     self.errors.extend(fe_errors.into_iter());
                 }
                 Ok(magic_comment) => {
+                    let span = range.span;
                     let comment = Arc::new(magic_comment);
                     match self.data.comment_to_range_map.entry(comment.clone()) {
                         Entry::Occupied(mut o) => o.get_mut().push(range),
@@ -249,11 +242,15 @@ impl FileVisitor {
                             v.insert(vec![range]);
                         }
                     }
-                    comments.push(comment.clone());
+                    comments.push(WithSpan {
+                        span,
+                        value: comment.clone(),
+                    });
                 }
             }
         }
         self.data.path_to_comment_map.insert(path.clone(), comments);
+        self.data.path_to_content_map.insert(path.clone(), contents);
     }
 }
 //--------------------------------------------------------------------------------------------------

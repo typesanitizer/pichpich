@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::utils::AdjustOffsets;
 use std::path::Path;
 
 /// Adapter type because miette's NamedSource type seemed insufficiently flexible.
@@ -34,12 +33,6 @@ impl<'a> miette::SpanContents<'a> for SpanContentsWithPathAdapter<'a> {
 
     fn line_count(&self) -> usize {
         self.contents.line_count()
-    }
-}
-
-impl AdjustOffsets for miette::SourceSpan {
-    fn adjust_offsets(self, base_offset: usize) -> miette::SourceSpan {
-        miette::SourceSpan::new((self.offset() + base_offset).into(), self.len().into())
     }
 }
 
