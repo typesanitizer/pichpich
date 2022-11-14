@@ -50,9 +50,11 @@ impl SymbolTable {
                 if v.iter().any(|(mc, _)| mc.is_def) {
                     continue;
                 }
+                let mut data = v.clone();
+                data.sort();
                 out.push(WithErrorLevel {
                     level,
-                    error: AnalysisErrorData::new_undefined_ref(v.clone()),
+                    error: AnalysisErrorData::new_undefined_ref(data),
                 });
             }
         }

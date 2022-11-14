@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use miette::{GraphicalReportHandler, GraphicalTheme};
 use pichpich::config::ErrorConfig;
 use pichpich::frontend::Options;
 use pichpich::main_impl;
-use miette::{GraphicalReportHandler, GraphicalTheme};
 
 #[test]
 fn error_snapshots() {
@@ -20,7 +20,7 @@ fn error_snapshots() {
             }
         };
         let mut error_config = ErrorConfig::default();
-        error_config.populate(vec!["error:all".to_string()]);
+        assert!(error_config.populate(vec!["error:all".to_string()]).is_ok());
         let opts = Options {
             root: path.to_owned(),
             error_config,

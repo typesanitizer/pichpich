@@ -37,17 +37,6 @@ Error: missing-def-and-ref
 Error: undefined-ref
 
   × error: missing definition for reference to undef-n
-   ╭─[tests/snapshots/error-basics/single-file-errors.txt:6:1]
- 6 │ 
- 7 │ See WARNING(ref: undef-n)
-   ·                  ───────
- 8 │ 
-   ╰────
-  help: did you delete or forget to add a WARNING(def: undef-n) somewhere?
-
-Error: undefined-ref
-
-  × missing definition for reference to undef-n
    ╭─[tests/snapshots/error-basics/single-file-errors.txt:4:1]
  4 │ 
  5 │ See NOTE(ref: undef-n)
@@ -55,6 +44,17 @@ Error: undefined-ref
  6 │ 
    ╰────
   help: did you delete or forget to add a NOTE(def: undef-n) somewhere?
+
+Error: undefined-ref
+
+  × missing definition for reference to undef-n
+   ╭─[tests/snapshots/error-basics/single-file-errors.txt:6:1]
+ 6 │ 
+ 7 │ See WARNING(ref: undef-n)
+   ·                  ───────
+ 8 │ 
+   ╰────
+  help: did you delete or forget to add a WARNING(def: undef-n) somewhere?
 Error: undefined-ref
 
   × error: missing definition for reference to undef-r
