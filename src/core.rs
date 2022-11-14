@@ -254,28 +254,4 @@ impl SyntaxData {
         }
         return res;
     }
-    // pub fn format_snapshot(&self) -> String {
-    //     let mut files = vec![];
-    //     for (path, content) in self.path_to_content_map.iter() {
-    //         let mut comments = self.path_to_comment_map.get(path)
-    //             .expect(&format!("missing comments for recorded path {}", path.to_string_lossy()))
-    //             .clone();
-    //         comments.sort();
-    //         let mut line_num = 0;
-    //         let comment_index = 0;
-    //         let mut buf = String::new();
-    //         for (i, line) in content.lines().enumerate() {
-    //             buf.write_str(line).unwrap();
-    //             buf.write_char('\n').unwrap();
-    //             while comment_index != comments.len() {
-    //                 let next_comment = comments[comment_index].span;
-    //                 let line_span = Span::interior_relative(content.as_str(), line);
-    //             }
-    //             if comment_index != comments.len() {
-    //                 // There are multiple
-    //             }
-    //         }
-    //     }
-    //     return "".to_string();
-    // }
 }
