@@ -2,11 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config::AppErrorCode::{
-    ConflictingKeys, EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef,
-    UnexpectedSpaces, UnknownAttributeKey,
-};
-use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
     MagicComment, MagicCommentKindData, SourceRange, Span, SyntaxData, WithSpan, SPECIAL_COMMENT_RE,
 };
@@ -22,6 +17,11 @@ use nom::{
     sequence::{delimited, separated_pair},
     IResult,
 };
+use pichpich_config::AppErrorCode::{
+    ConflictingKeys, EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef,
+    UnexpectedSpaces, UnknownAttributeKey,
+};
+use pichpich_config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};

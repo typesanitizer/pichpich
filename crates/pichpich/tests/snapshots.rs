@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use miette::{GraphicalReportHandler, GraphicalTheme};
-use pichpich::config::ErrorConfig;
 use pichpich::frontend::Options;
 use pichpich::{frontend, main_impl};
+use pichpich_config::ErrorConfig;
 
 #[test]
 fn internal_state_snapshots() {

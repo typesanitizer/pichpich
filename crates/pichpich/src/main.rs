@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use pichpich::config::ErrorConfig;
 use pichpich::frontend::Options;
 use pichpich::main_impl;
+use pichpich_config::ErrorConfig;
 
 fn main() -> miette::Result<()> {
     let matches = clap::command!()

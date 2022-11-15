@@ -1,0 +1,8 @@
+[package]
+name = "pichpich_config"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pichpich_config"
+path = "src/config.rs"
