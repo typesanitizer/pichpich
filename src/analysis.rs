@@ -8,7 +8,6 @@ use crate::frontend::{parse_attribute_list, Options};
 use crate::utils::AdjustOffsets;
 use crate::{AppError, AppErrorData};
 use miette::Diagnostic;
-use std::fmt::Write;
 use std::{
     collections::hash_map::Entry,
     collections::{BTreeSet, HashMap},
@@ -17,6 +16,7 @@ use std::{
     sync::Arc,
 };
 
+#[allow(clippy::type_complexity)]
 struct SymbolTable {
     id_to_comments_map: HashMap<String, Vec<(Arc<MagicComment>, Vec<SourceRange>)>>,
 }
@@ -25,7 +25,10 @@ impl SymbolTable {
     fn build(data: SyntaxData) -> SymbolTable {
         let mut id_to_comments_map: HashMap<String, Vec<_>> = HashMap::default();
         for (comment, range) in data.comment_to_range_map.into_iter() {
-            assert!(range.len() > 0, "doesn't make sense to store empty ranges");
+            assert!(
+                !range.is_empty(),
+                "doesn't make sense to store empty ranges"
+            );
             if comment.id.is_empty() {
                 continue;
             }
@@ -125,8 +128,7 @@ impl AnalysisErrorData {
             .chain(
                 data.into_iter()
                     .skip(1)
-                    .map(|(mc, rv)| rv.into_iter().map(move |r| (mc.clone(), r)))
-                    .flatten(),
+                    .flat_map(|(mc, rv)| rv.into_iter().map(move |r| (mc.clone(), r))),
             )
             .map(|(c, r)| f(c, r, vec![]))
             .collect();
@@ -172,19 +174,6 @@ impl Display for AnalysisErrorData {
 
 impl Error for AnalysisErrorData {}
 
-fn format_or_list(v: &[String]) -> String {
-    let mut buf = String::new();
-    assert!(v.len() >= 2);
-    for i in 0..v.len() - 2 {
-        buf.write_str(&v[i]).unwrap();
-        buf.write_str(", ").unwrap();
-    }
-    buf.write_str(&v[v.len() - 2]).unwrap();
-    buf.write_str(" or ").unwrap();
-    buf.write_str(&v[v.len() - 1]).unwrap();
-    return buf;
-}
-
 fn article_for(s: &str) -> &'static str {
     if s.starts_with(|c: char| "AEIOU".contains(c.to_ascii_uppercase())) {
         return "an";
@@ -214,7 +203,7 @@ impl miette::Diagnostic for AnalysisErrorData {
                 related,
                 ..
             } => {
-                if related.len() > 0 {
+                if !related.is_empty() {
                     let kinds: Vec<String> = [main_comment.kind.leading_text()]
                         .into_iter()
                         .chain(related.iter().map(|aed| match aed {
@@ -229,7 +218,7 @@ impl miette::Diagnostic for AnalysisErrorData {
                         .collect();
                     Some(Box::new(format!(
                         "consistently use this id in {}",
-                        format_or_list(&kinds)
+                        crate::format_utils::format_list(&kinds, "or")
                     )))
                 } else {
                     None
@@ -256,14 +245,13 @@ impl miette::Diagnostic for AnalysisErrorData {
                         .get(main_range.span.into_range())
                         .expect("Out-of-bounds offsets stored in range"),
                 );
-                let (_, _, value_span) = map.get("ref").expect(&format!(
-                    "missing ref key in comment {:?}",
-                    main_range.slice()
-                ));
+                let (_, _, value_span) = map.get("ref").unwrap_or_else(|| {
+                    panic!("missing ref key in comment {:?}", main_range.slice())
+                });
                 Some(Box::new(
                     [miette::LabeledSpan::new_with_span(
                         None,
-                        value_span.clone().adjust_offsets(main_range.span.start()),
+                        value_span.adjust_offsets(main_range.span.start()),
                     )]
                     .into_iter(),
                 ))
@@ -278,15 +266,14 @@ impl miette::Diagnostic for AnalysisErrorData {
                         .expect("Out-of-bounds offsets stored in range"),
                 );
                 let (_, _, value_span) = map.get("ref").unwrap_or_else(|| {
-                    map.get("def").expect(&format!(
-                        "missing def or ref key in comment {:?}",
-                        main_range.slice()
-                    ))
+                    map.get("def").unwrap_or_else(|| {
+                        panic!("missing def or ref key in comment {:?}", main_range.slice())
+                    })
                 });
                 Some(Box::new(
                     [miette::LabeledSpan::new_with_span(
                         None,
-                        value_span.clone().adjust_offsets(main_range.span.start()),
+                        value_span.adjust_offsets(main_range.span.start()),
                     )]
                     .into_iter(),
                 ))

@@ -14,7 +14,7 @@ fn main() -> miette::Result<()> {
     let checks = matches
         .get_many::<String>("check")
         .unwrap_or_default()
-        .map(|v| v.clone())
+        .cloned()
         .collect::<Vec<_>>();
 
     let mut error_config = ErrorConfig::default();

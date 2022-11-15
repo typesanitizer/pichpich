@@ -2,10 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#![allow(clippy::needless_return)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::redundant_static_lifetimes)]
+#![allow(clippy::single_match)]
+
 mod analysis;
 mod backend;
 pub mod config;
 mod core;
+mod format_utils;
 pub mod frontend;
 mod miette_utils;
 mod utils;
@@ -31,10 +37,7 @@ pub fn main_impl(opts: Options) -> miette::Result<()> {
 
     if !errors.is_empty() {
         Err(AllErrors {
-            unrelated: errors
-                .into_iter()
-                .map(|e| Box::new(AppErrorNewtype(e)))
-                .collect(),
+            unrelated: errors.into_iter().map(AppErrorNewtype).collect(),
         })?
     }
     return Ok(());
@@ -44,7 +47,7 @@ pub fn main_impl(opts: Options) -> miette::Result<()> {
 struct AllErrors {
     // Not sure why this property is called 'related', it just seems
     // to be a generic error grouping mechanism.
-    unrelated: Vec<Box<AppErrorNewtype>>,
+    unrelated: Vec<AppErrorNewtype>,
 }
 
 impl Error for AllErrors {}
@@ -58,7 +61,7 @@ impl Display for AllErrors {
 impl Diagnostic for AllErrors {
     fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn Diagnostic> + 'a>> {
         Some(Box::new(
-            self.unrelated.iter().map(|b| b.as_ref() as &dyn Diagnostic),
+            self.unrelated.iter().map(|b| b as &dyn Diagnostic),
         ))
     }
 }
