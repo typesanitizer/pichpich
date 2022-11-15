@@ -87,7 +87,7 @@ impl Span {
     pub fn contains_span(&self, other: Span) -> bool {
         self._start <= other._start && other._end <= self._end
     }
-    pub(crate) fn interior_relative(base: &str, inner: &str) -> Span {
+    pub(crate) fn slice_relative(base: &str, inner: &str) -> Span {
         let base_mem_range = base.as_ptr() as usize..base.as_ptr() as usize + base.len();
         let inner_start = inner.as_ptr() as usize;
         let inner_end = inner.as_ptr() as usize + inner.len();
@@ -103,6 +103,9 @@ impl Span {
             inner_start - base_mem_range.start,
             inner_end - base_mem_range.start,
         )
+    }
+    pub(crate) fn for_subslice(base: &SourceRange, inner: &str) -> Span {
+        Span::slice_relative(base.slice(), inner).adjust_offsets(base.span.start())
     }
     pub fn into_range(self) -> Range<usize> {
         self._start..self._end
@@ -270,7 +273,7 @@ impl SyntaxData {
         for line in content.lines() {
             buf.push_str(line);
             buf.push('\n');
-            let line_span = Span::interior_relative(content.as_str(), line);
+            let line_span = Span::slice_relative(content.as_str(), line);
             while let Some(pending) = worklist.pop_front() {
                 if !line_span.contains(pending.span.end()) {
                     worklist.push_front(pending);
