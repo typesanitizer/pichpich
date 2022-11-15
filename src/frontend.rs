@@ -10,7 +10,6 @@ use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
     MagicComment, MagicCommentKindData, SourceRange, Span, SyntaxData, WithSpan, SPECIAL_COMMENT_RE,
 };
-use crate::utils::AdjustOffsets;
 use crate::{utils, AppError, AppErrorData};
 use miette::SourceCode;
 use nom::{
@@ -375,12 +374,9 @@ fn parse_magic_comment(
     );
     if magic_comment.id.is_empty() {
         if let Some(level) = error_config.get_level(AppErrorCode::MissingDefAndRef) {
-            let err = WithErrorLevel {
-                level,
-                error: FrontendErrorData::MissingId {
-                    range: base_range.clone(),
-                },
-            };
+            let err = level.attach_to(FrontendErrorData::MissingId {
+                range: base_range.clone(),
+            });
             errs.push(err);
         }
     }
@@ -422,8 +418,7 @@ fn populate_attrs(
             _ => diagnose_unknown_attr_key(error_config, base_range, key, &mut bad_key_spans),
         }
         if let Some(_) = error_config.get_level(ConflictingKeys) {
-            let span = Span::interior_relative(base_range.slice(), key)
-                .adjust_offsets(base_range.span.start());
+            let span = Span::for_subslice(base_range, key);
             // Technically quadratic, but we should only have a few attributes.
             if let Some(spans) = key_span_map.iter_mut().find_map(|(k, vs)| {
                 if k == &key || (key == "def" && k == &"ref") || (key == "ref" && k == &"def") {
@@ -442,14 +437,11 @@ fn populate_attrs(
         let level = error_config
             .get_level(UnknownAttributeKey)
             .expect("filled bad_key_spans even though UnknownAttributeKey is set to ignore");
-        errs.push(WithErrorLevel {
-            level,
-            error: FrontendErrorData::UnknownAttributeKey {
-                leading_text: comment.kind.leading_text(),
-                comment_range: base_range.clone(),
-                spans: bad_key_spans,
-            },
-        });
+        errs.push(level.attach_to(FrontendErrorData::UnknownAttributeKey {
+            leading_text: comment.kind.leading_text(),
+            comment_range: base_range.clone(),
+            spans: bad_key_spans,
+        }));
     }
     if !key_span_map.is_empty() {
         let level = error_config
@@ -460,13 +452,10 @@ fn populate_attrs(
             if spans.len() == 1 {
                 continue;
             }
-            errs.push(WithErrorLevel {
-                level,
-                error: FrontendErrorData::ConflictingKeys {
-                    comment_range: base_range.clone(),
-                    spans,
-                },
-            });
+            errs.push(level.attach_to(FrontendErrorData::ConflictingKeys {
+                comment_range: base_range.clone(),
+                spans,
+            }));
         }
     }
 }
@@ -481,9 +470,7 @@ fn diagnose_unknown_attr_key(
     // error, because (e.g.) 'https' will be interpreted as the key. We should emit a special
     // diagnostic in that situation.
     if let Some(_) = error_config.get_level(UnknownAttributeKey) {
-        let span = Span::interior_relative(base_range.slice(), key)
-            .adjust_offsets(base_range.span.start());
-        bad_key_spans.push(span);
+        bad_key_spans.push(Span::for_subslice(base_range, key));
     }
 }
 
@@ -495,32 +482,27 @@ fn diagnose_bad_attribute_errors(
 ) {
     let empty_key = bad_attr.starts_with(':');
     let empty_value = bad_attr.ends_with(':');
-    let span = Span::interior_relative(base_range.slice(), bad_attr)
-        .adjust_offsets(base_range.span.start());
+    let span = Span::for_subslice(base_range, bad_attr);
     if empty_key || empty_value {
         if let Some(level) = error_config.get_level(EmptyAttributeKeyOrValue) {
-            errs.push(WithErrorLevel {
-                level,
-                error: FrontendErrorData::EmptyAttributeKeyOrValue {
+            errs.push(
+                level.attach_to(FrontendErrorData::EmptyAttributeKeyOrValue {
                     empty_key,
                     empty_value,
                     range: SourceRange {
                         span,
                         ..base_range.clone()
                     },
-                },
-            });
+                }),
+            );
         }
     } else if let Some(level) = error_config.get_level(MalformedAttribute) {
-        errs.push(WithErrorLevel {
-            level,
-            error: FrontendErrorData::MalformedAttribute {
-                range: SourceRange {
-                    span,
-                    ..base_range.clone()
-                },
+        errs.push(level.attach_to(FrontendErrorData::MalformedAttribute {
+            range: SourceRange {
+                span,
+                ..base_range.clone()
             },
-        });
+        }));
     }
 }
 

@@ -9,6 +9,12 @@ pub enum ErrorLevel {
     Error,
 }
 
+impl ErrorLevel {
+    pub(crate) fn attach_to<T>(self, error: T) -> WithErrorLevel<T> {
+        WithErrorLevel { error, level: self }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WithErrorLevel<T> {
     pub(crate) error: T,          // deliberately first for proper sorting
@@ -17,10 +23,7 @@ pub struct WithErrorLevel<T> {
 
 impl<T> WithErrorLevel<T> {
     pub fn map<U>(self, f: &dyn Fn(T) -> U) -> WithErrorLevel<U> {
-        WithErrorLevel {
-            level: self.level,
-            error: f(self.error),
-        }
+        self.level.attach_to(f(self.error))
     }
 }
 

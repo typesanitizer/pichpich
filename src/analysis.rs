@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
+use crate::config::{AppErrorCode, ErrorConfig};
 use crate::core::{MagicComment, SourceRange, Span, SyntaxData};
 use crate::frontend::{parse_attribute_list, Options};
 use crate::utils::AdjustOffsets;
@@ -61,10 +61,7 @@ impl SymbolTable {
                 }
                 let mut data = v.clone();
                 data.sort();
-                out.push(WithErrorLevel {
-                    level,
-                    error: AnalysisErrorData::new_inconsistent_kind(data),
-                })
+                out.push(level.attach_to(AnalysisErrorData::new_inconsistent_kind(data)));
             }
         }
 
@@ -75,10 +72,7 @@ impl SymbolTable {
                 }
                 let mut data = v.clone();
                 data.sort();
-                out.push(WithErrorLevel {
-                    level,
-                    error: AnalysisErrorData::new_undefined_ref(data),
-                });
+                out.push(level.attach_to(AnalysisErrorData::new_undefined_ref(data)));
             }
         }
 
@@ -317,8 +311,8 @@ fn parse_attr_list_w_spans(base: &str) -> HashMap<&str, (&str, Span, Span)> {
             k,
             (
                 v,
-                Span::interior_relative(base, k),
-                Span::interior_relative(base, v),
+                Span::slice_relative(base, k),
+                Span::slice_relative(base, v),
             ),
         );
         assert!(
