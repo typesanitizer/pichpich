@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![allow(clippy::needless_return)]
+#![allow(clippy::needless_lifetimes)]
 #![allow(clippy::redundant_pattern_matching)]
 #![allow(clippy::redundant_static_lifetimes)]
 #![allow(clippy::single_match)]
@@ -13,6 +14,7 @@ mod core;
 mod format_utils;
 pub mod frontend;
 mod miette_utils;
+pub mod parse_clike;
 mod utils;
 
 use crate::frontend::Options;

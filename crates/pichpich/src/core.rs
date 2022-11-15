@@ -110,6 +110,9 @@ impl Span {
     pub fn into_range(self) -> Range<usize> {
         self._start..self._end
     }
+    pub fn attach_to<T>(self, value: T) -> WithSpan<T> {
+        WithSpan { span: self, value }
+    }
 }
 
 impl From<Span> for miette::SourceSpan {
