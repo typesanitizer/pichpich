@@ -1,0 +1,35 @@
+[package]
+name = "pichpich"
+version = "0.1.0"
+edition = "2021"
+exclude = ["tests/snapshots"]
+authors = ["Varun Gandhi <git@cutcul.us>"]
+readme = "README.md"
+repository = "https://github.com/typesanitizer/pichpich.git"
+license = "MPL-2.0"
+
+[lib]
+name = "pichpich"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pichpich"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pichpich_config = { path = "../pichpich_config" }
+mime_guess = "2.0.4"
+ignore = "0.4.18"
+miette = { version = "5.4.1", features = ["fancy"] }
+regex = "1.7.0"
+lazy_static = "1.4.0"
+nom = "7.1.1"
+serde_derive = "1.0.147"
+serde = { version = "1.0.147", features = ["rc"] }
+clap = { version = "4.0.23", features = ["cargo"] }
+
+[dev-dependencies]
+insta = { version = "1.21.0", features = ["yaml"] }
+glob = "0.3.0"

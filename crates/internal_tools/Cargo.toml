@@ -1,0 +1,14 @@
+[package]
+name = "internal_tools"
+version = "0.1.0"
+edition = "2021"
+authors = ["Varun Gandhi <git@cutcul.us>"]
+repository = "https://github.com/typesanitizer/pichpich.git"
+license = "MPL-2.0"
+
+[[bin]]
+name = "pichpich-dev"
+path = "src/main.rs"
+
+[dependencies]
+pichpich_config = { path = "../pichpich_config" }

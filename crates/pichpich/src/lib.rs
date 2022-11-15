@@ -9,7 +9,6 @@
 
 mod analysis;
 mod backend;
-pub mod config;
 mod core;
 mod format_utils;
 pub mod frontend;
@@ -17,11 +16,9 @@ mod miette_utils;
 mod utils;
 
 use crate::frontend::Options;
-use crate::{
-    analysis::AnalysisErrorData, config::ErrorLevel, config::WithErrorLevel,
-    frontend::FrontendErrorData, miette_utils::ErrorCount,
-};
+use crate::{analysis::AnalysisErrorData, frontend::FrontendErrorData, miette_utils::ErrorCount};
 use miette::{Diagnostic, LabeledSpan, Severity, SourceCode};
+use pichpich_config::{ErrorLevel, WithErrorLevel};
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
 

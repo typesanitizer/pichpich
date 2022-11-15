@@ -234,6 +234,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "internal_tools"
+version = "0.1.0"
+dependencies = [
+ "pichpich_config",
+]
+
+[[package]]
 name = "is_ci"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -383,10 +390,15 @@ dependencies = [
  "miette",
  "mime_guess",
  "nom",
+ "pichpich_config",
  "regex",
  "serde",
  "serde_derive",
 ]
+
+[[package]]
+name = "pichpich_config"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"
