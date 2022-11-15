@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: buf
 ---
 
-  × 20 errors
+  × 21 errors
 
 Error: missing-def-and-ref
 
@@ -140,8 +140,18 @@ Error: conflicting-keys
  24 │ 
  25 │ NOTE(def: x1, ref: y2)
     ·      ───      ───
+ 26 │ 
     ╰────
   help: keys can only be specified once per comment
+Error: spaces-in-attr-key-or-value
+
+  × error: found unquoted value 'has space' with whitespace
+    ╭─[tests/snapshots/error-basics/single-file-errors.txt:26:1]
+ 26 │ 
+ 27 │ NOTE(def: has space)
+    ·           ─────────
+    ╰────
+  help: add explicit surrounding quotes "..." or remove whitespace
 Error: undefined-ref
 
   × error: missing definition for reference to undef-n

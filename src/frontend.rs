@@ -4,7 +4,7 @@
 
 use crate::config::AppErrorCode::{
     ConflictingKeys, EmptyAttributeKeyOrValue, MalformedAttribute, MissingDefAndRef,
-    UnknownAttributeKey,
+    UnexpectedSpaces, UnknownAttributeKey,
 };
 use crate::config::{AppErrorCode, ErrorConfig, WithErrorLevel};
 use crate::core::{
@@ -59,11 +59,15 @@ pub enum FrontendErrorData {
     UnknownAttributeKey {
         leading_text: &'static str, // kinda' redundant but whatever
         comment_range: SourceRange,
-        spans: Vec<Span>, // invariant: Vec is non-empty
+        key_spans: Vec<Span>, // invariant: Vec is non-empty
     },
     ConflictingKeys {
         comment_range: SourceRange,
-        spans: Vec<Span>, // invariant: Vec is non-empty
+        key_spans: Vec<Span>, // invariant: Vec is non-empty
+    },
+    UnexpectedSpaces {
+        comment_range: SourceRange,
+        value_spans: Vec<Span>, // invariant: Vec is non-empty
     },
 }
 
@@ -84,7 +88,7 @@ impl Display for FrontendErrorData {
             }
             FrontendErrorData::MalformedAttribute { .. } =>
                 f.write_str("found attribute not in 'key: value' format"),
-            FrontendErrorData::UnknownAttributeKey { leading_text, comment_range, spans } => {
+            FrontendErrorData::UnknownAttributeKey { leading_text, comment_range, key_spans: spans } => {
                 let key_text: Vec<_> = spans.iter().map(|span|
                     format!("'{}'", SourceRange { span: *span, .. comment_range.clone() }.slice())
                 ).collect();
@@ -93,7 +97,7 @@ impl Display for FrontendErrorData {
                     crate::format_utils::format_list(&key_text, "and"),
                     leading_text))
             }
-            FrontendErrorData::ConflictingKeys { comment_range, spans } => {
+            FrontendErrorData::ConflictingKeys { comment_range, key_spans: spans } => {
                 let range = SourceRange { span: spans[0], .. comment_range.clone() };
                 let key = range.slice();
                 let all_same = spans[1..].iter().all(|span|
@@ -109,6 +113,14 @@ impl Display for FrontendErrorData {
                         crate::format_utils::format_list(&keys, "and")
                     ))
                 }
+            }
+            FrontendErrorData::UnexpectedSpaces { comment_range, value_spans } => {
+                let value_text : Vec<_> = value_spans.iter().map(|span|
+                    format!("'{}'", SourceRange { span: *span, .. comment_range.clone() }.slice())
+                ).collect();
+                f.write_fmt(format_args!("found unquoted value{} {} with whitespace",
+                     if value_text.len() > 1 { "s" } else { "" },
+                     crate::format_utils::format_list(&value_text, "and")))
             }
         }
     }
@@ -126,6 +138,7 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MalformedAttribute { .. } => Some(Box::new(MalformedAttribute)),
             FrontendErrorData::UnknownAttributeKey { .. } => Some(Box::new(UnknownAttributeKey)),
             FrontendErrorData::ConflictingKeys { .. } => Some(Box::new(ConflictingKeys)),
+            FrontendErrorData::UnexpectedSpaces { .. } => Some(Box::new(UnexpectedSpaces)),
         }
     }
     fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
@@ -140,6 +153,9 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::ConflictingKeys { .. } => {
                 Some(Box::new("keys can only be specified once per comment"))
             }
+            FrontendErrorData::UnexpectedSpaces { .. } => Some(Box::new(
+                "add explicit surrounding quotes \"...\" or remove whitespace",
+            )),
         }
     }
     fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
@@ -153,12 +169,23 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MalformedAttribute { range } => Some(Box::new(
                 [miette::LabeledSpan::new_with_span(None, range.span)].into_iter(),
             )),
-            FrontendErrorData::UnknownAttributeKey { spans, .. } => Some(Box::new(
+            FrontendErrorData::UnknownAttributeKey {
+                key_spans: spans, ..
+            } => Some(Box::new(
                 spans
                     .iter()
                     .map(|span| miette::LabeledSpan::new_with_span(None, *span)),
             )),
-            FrontendErrorData::ConflictingKeys { spans, .. } => Some(Box::new(
+            FrontendErrorData::ConflictingKeys {
+                key_spans: spans, ..
+            } => Some(Box::new(
+                spans
+                    .iter()
+                    .map(|span| miette::LabeledSpan::new_with_span(None, *span)),
+            )),
+            FrontendErrorData::UnexpectedSpaces {
+                value_spans: spans, ..
+            } => Some(Box::new(
                 spans
                     .iter()
                     .map(|span| miette::LabeledSpan::new_with_span(None, *span)),
@@ -172,6 +199,7 @@ impl miette::Diagnostic for FrontendErrorData {
             FrontendErrorData::MalformedAttribute { range } => Some(range),
             FrontendErrorData::UnknownAttributeKey { comment_range, .. } => Some(comment_range),
             FrontendErrorData::ConflictingKeys { comment_range, .. } => Some(comment_range),
+            FrontendErrorData::UnexpectedSpaces { comment_range, .. } => Some(comment_range),
         }
     }
 }
@@ -395,8 +423,16 @@ fn populate_attrs(
 ) {
     let mut bad_key_spans = Vec::new();
     let mut key_span_map = Vec::<(&str, Vec<Span>)>::new();
+    let mut value_spaces_spans = Vec::new();
     for (key, value) in good_attrs {
         use MagicCommentKindData as Kind;
+        if let Some(_) = error_config.get_level(UnexpectedSpaces) {
+            if !(value.starts_with('"') && value.ends_with('"'))
+                && value.contains(|c: char| c.is_whitespace())
+            {
+                value_spaces_spans.push(Span::for_subslice(base_range, value));
+            }
+        }
         match key {
             "def" | "ref" => {
                 comment.id = value.to_owned();
@@ -440,7 +476,7 @@ fn populate_attrs(
         errs.push(level.attach_to(FrontendErrorData::UnknownAttributeKey {
             leading_text: comment.kind.leading_text(),
             comment_range: base_range.clone(),
-            spans: bad_key_spans,
+            key_spans: bad_key_spans,
         }));
     }
     if !key_span_map.is_empty() {
@@ -454,9 +490,18 @@ fn populate_attrs(
             }
             errs.push(level.attach_to(FrontendErrorData::ConflictingKeys {
                 comment_range: base_range.clone(),
-                spans,
+                key_spans: spans,
             }));
         }
+    }
+    if !value_spaces_spans.is_empty() {
+        let level = error_config
+            .get_level(UnexpectedSpaces)
+            .expect("filled value_spaces_span even though UnexpectedSpaces is set to ignore");
+        errs.push(level.attach_to(FrontendErrorData::UnexpectedSpaces {
+            comment_range: base_range.clone(),
+            value_spans: value_spaces_spans,
+        }))
     }
 }
 
