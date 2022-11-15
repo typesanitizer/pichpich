@@ -23,3 +23,5 @@ NOTE(def: unknown-key, lol1: lol, lol2: lol)
 NOTE(def: abc, def: efg)
 
 NOTE(def: x1, ref: y2)
+
+NOTE(def: has space)
