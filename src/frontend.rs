@@ -89,8 +89,10 @@ impl Display for FrontendErrorData {
                 let key_text: Vec<_> = spans.iter().map(|span|
                     format!("'{}'", SourceRange { span: *span, .. comment_range.clone() }.slice())
                 ).collect();
-                f.write_fmt(format_args!("found unknown attribute key{1} for {0}",
-                    leading_text, format_pluralized_and_list(&key_text)))
+                f.write_fmt(format_args!("found unknown attribute key{} {} for {}",
+                    if key_text.len() > 1 { "s" } else { "" },
+                    crate::format_utils::format_list(&key_text, "and"),
+                    leading_text))
             }
             FrontendErrorData::ConflictingKeys { comment_range, spans } => {
                 let range = SourceRange { span: spans[0], .. comment_range.clone() };
@@ -101,35 +103,16 @@ impl Display for FrontendErrorData {
                 if all_same {
                     f.write_fmt(format_args!("key '{}' is repeated {} times", key, spans.len()))
                 } else {
-                    f.write_fmt(format_args!("key{} cannot be used simultaneously",
-                        format_pluralized_and_list(
-                            &spans.iter().map(|s| format!("'{}'", SourceRange { span: *s, .. comment_range.clone() }.slice()))
-                                .collect::<Vec<_>>()
-                        )
+                    let keys = spans.iter().map(|s| format!("'{}'", SourceRange { span: *s, .. comment_range.clone() }.slice()))
+                        .collect::<Vec<_>>();
+                    assert!(keys.len() >= 2);
+                    f.write_fmt(format_args!("keys {} cannot be used simultaneously",
+                        crate::format_utils::format_list(&keys, "and")
                     ))
                 }
             }
         }
     }
-}
-
-fn format_pluralized_and_list(vs: &[String]) -> String {
-    let mut buf = String::new();
-    assert!(!vs.is_empty());
-    if vs.len() == 1 {
-        buf.push(' ');
-        buf.push_str(&vs[0]);
-        return buf;
-    }
-    buf.push_str("s ");
-    for i in 0..vs.len() - 2 {
-        buf.push_str(&vs[i]);
-        buf.push_str(", ")
-    }
-    buf.push_str(&vs[vs.len() - 2]);
-    buf.push_str(" and ");
-    buf.push_str(&vs[vs.len() - 1]);
-    return buf;
 }
 
 impl Error for FrontendErrorData {}
@@ -248,7 +231,7 @@ impl FileVisitorBuilder {
                         return out;
                     }
                 }
-                Err(_) => {}
+                Err(_) => {} // A receiver closed; that's OK.
             }
         }
     }
@@ -352,7 +335,7 @@ impl FileVisitor {
             }
         }
         self.data.path_to_comment_map.insert(path.clone(), comments);
-        self.data.path_to_content_map.insert(path.clone(), contents);
+        self.data.path_to_content_map.insert(path, contents);
     }
 }
 //--------------------------------------------------------------------------------------------------

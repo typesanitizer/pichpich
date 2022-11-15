@@ -12,7 +12,6 @@ use miette::MietteError;
 use regex::Regex;
 use serde::ser::SerializeStruct;
 use std::collections::VecDeque;
-use std::fmt::Write;
 use std::ops::Range;
 use std::{collections::HashMap, hash::Hash, path::PathBuf, sync::Arc};
 
@@ -269,32 +268,28 @@ impl SyntaxData {
         let mut comment_index = 0;
         let mut buf = String::new();
         for line in content.lines() {
-            buf.write_str(line).unwrap();
-            buf.write_char('\n').unwrap();
+            buf.push_str(line);
+            buf.push('\n');
             let line_span = Span::interior_relative(content.as_str(), line);
             while let Some(pending) = worklist.pop_front() {
                 if !line_span.contains(pending.span.end()) {
                     worklist.push_front(pending);
                     break;
                 }
-                buf.write_str(&" ".repeat(pending.span.end() - line_span.start()))
-                    .unwrap();
-                buf.write_fmt(format_args!("^ end {:?}\n", pending.value))
-                    .unwrap();
+                buf.push_str(&" ".repeat(pending.span.end() - line_span.start()));
+                buf.push_str(&format!("^ end {:?}\n", pending.value));
             }
             while comment_index != comments.len() {
                 let comment = &comments[comment_index];
                 let num_space = comment.span.start() - line_span.start();
                 if line_span.contains_span(comment.span) {
-                    buf.write_str(&" ".repeat(num_space)).unwrap();
-                    buf.write_str(&"^".repeat(comment.span.len())).unwrap();
-                    buf.write_fmt(format_args!(" {:?}\n", comment.value))
-                        .unwrap();
+                    buf.push_str(&" ".repeat(num_space));
+                    buf.push_str(&"^".repeat(comment.span.len()));
+                    buf.push_str(&format!(" {:?}\n", comment.value));
                     comment_index += 1;
                 } else if line_span.contains(comment.span.start()) {
-                    buf.write_str(&" ".repeat(num_space)).unwrap();
-                    buf.write_fmt(format_args!("^ start {:?}\n", comment.value))
-                        .unwrap();
+                    buf.push_str(&" ".repeat(num_space));
+                    buf.push_str(&format!("^ start {:?}\n", comment.value));
                     worklist.push_back(comment.clone());
                     comment_index += 1;
                 } else {
@@ -311,10 +306,12 @@ impl SyntaxData {
             let mut comments = self
                 .path_to_comment_map
                 .get(path)
-                .expect(&format!(
-                    "missing comments for recorded path {}",
-                    path.to_string_lossy()
-                ))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "missing comments for recorded path {}",
+                        path.to_string_lossy()
+                    )
+                })
                 .clone();
             comments.sort();
             let file_snapshot = Self::format_snapshot_file(content, comments);
@@ -324,7 +321,7 @@ impl SyntaxData {
         let mut out = String::new();
         for (_, s) in files.into_iter() {
             out.push_str(&s);
-            out.write_char('\n').unwrap();
+            out.push('\n');
         }
         return out;
     }

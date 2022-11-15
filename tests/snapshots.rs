@@ -13,8 +13,7 @@ fn internal_state_snapshots() {
         let path = match entry {
             Ok(p) => p,
             Err(e) => {
-                assert!(false, "ill-formed result from glob {}", e);
-                unreachable!()
+                panic!("ill-formed result from glob {}", e);
             }
         };
         let opts = Options {
@@ -34,8 +33,7 @@ fn error_snapshots() {
         let path = match entry {
             Ok(p) => p,
             Err(e) => {
-                assert!(false, "ill-formed result from glob {}", e);
-                unreachable!()
+                panic!("ill-formed result from glob {}", e);
             }
         };
         let mut error_config = ErrorConfig::default();
@@ -46,8 +44,7 @@ fn error_snapshots() {
         };
         let result = main_impl(opts);
         match result {
-            Ok(()) => assert!(
-                false,
+            Ok(()) => panic!(
                 "expected errors when processing {:?}",
                 path.to_string_lossy()
             ),
