@@ -23,6 +23,7 @@ impl FlatDocument {
         }
         return buf;
     }
+
     pub fn format_snapshot_with_enclosing_spans(
         &self,
         magic_comments: &mut dyn Iterator<Item = &str>,
@@ -46,6 +47,7 @@ impl FlatDocument {
         }
         return format_utils::format_snapshot_file(self.contents.as_str(), span_marks);
     }
+
     // The enclosing span is defined as follows.
     // - If the span is within the text of a line comment, then the returned span
     //   includes the contiguous paragraph containing the argument slice.
@@ -67,6 +69,7 @@ impl FlatDocument {
             self.enclosing_group_span(element_index),
         );
     }
+
     fn enclosing_group_span(&self, central_index: usize) -> Option<Span> {
         let mut start_offset = None;
         let mut balance = 0;
@@ -105,6 +108,7 @@ impl FlatDocument {
         }
         return None;
     }
+
     fn find_matching_comment(
         &self,
         start: usize,
@@ -118,12 +122,11 @@ impl FlatDocument {
         // See also NOTE(ref: regular-flat-doc-structure)
         let mut balance = 0;
         while (0..self.elements.len()).contains(&(cursor as usize)) {
+            let contents = self.contents.as_str();
             match &self.elements[cursor as usize].value {
                 FlatDocumentElementKind::Content => {
                     if balance == 0 {
-                        let newlines = self
-                            .contents
-                            .as_str()
+                        let newlines = contents
                             .slice(self.elements[cursor as usize].span.into_range())
                             .as_bytes()
                             .iter()
@@ -140,9 +143,7 @@ impl FlatDocument {
                         let prev_cursor = cursor.wrapping_add(-shift);
                         let prev_content = self.elements[prev_cursor as usize];
                         assert_eq!(prev_content.value, FlatDocumentElementKind::Content);
-                        let is_para_cont = self
-                            .contents
-                            .as_str()
+                        let is_para_cont = contents
                             .slice(prev_content.span.into_range())
                             .contains(|c: char| !c.is_whitespace());
                         if is_para_cont {
@@ -173,7 +174,7 @@ impl FlatDocument {
                 if pre.value == Kind::LineCommentStart && post.value == Kind::LineCommentEnd =>
             {
                 let para_start_index = self.find_matching_comment(
-                    central_index.wrapping_sub(1),
+                    central_index - 1,
                     false,
                     Kind::LineCommentStart,
                     Kind::LineCommentEnd,

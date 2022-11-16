@@ -36,7 +36,6 @@ fn enclosing_spans_snapshots() {
         .map(|(p, _)| p.clone())
         .collect();
     path_list.sort();
-    assert!(path_list.len() == 2);
     let mut documents = vec![];
     for path in path_list.iter() {
         let contents = syntax_data.path_to_content_map.get(path).unwrap().clone();
