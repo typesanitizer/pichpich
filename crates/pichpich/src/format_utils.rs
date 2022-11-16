@@ -2,10 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![feature(map_first_last)]
-
 use crate::core::{Span, WithSpan};
-use nom::Slice;
 use std::collections::BTreeSet;
 use std::fmt::Write;
 

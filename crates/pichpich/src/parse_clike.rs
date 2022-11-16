@@ -55,7 +55,7 @@ impl FlatDocument {
     // Additionally, if the span is within a group (e.g. { ... }), then the span
     // for the innermost group containing the span is also returned.
     pub fn find_enclosing_spans(&self, s: &str) -> (Option<Span>, Option<Span>) {
-        assert!(s.len() > 0);
+        assert!(!s.is_empty());
         let span = Span::slice_relative(self.contents.as_str(), s);
         let element_index = self.binary_search(span.start());
         assert!(
@@ -200,7 +200,7 @@ impl FlatDocument {
     }
     fn binary_search(&self, offset: usize) -> usize {
         assert!(offset < self.contents.len());
-        assert!(self.elements.len() >= 1);
+        assert!(!self.elements.is_empty());
         let mut lo = 0;
         let mut hi = self.elements.len();
         while lo < hi - 1 {
