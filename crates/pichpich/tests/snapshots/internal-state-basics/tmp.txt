@@ -3,3 +3,5 @@ NOTE(ref: abc)
 FIXME(def: x, issue: aa)
 
   REVIEW(def: z, from: ss)
+
+これ NOTE(def: unicode)

@@ -6,7 +6,7 @@ expression: document.format_snapshot()
 - GroupStart: "{"
 - Content: "\n  "
 - BlockCommentStart: "/*"
-- Content: "\n   * Block comment\n   "
+- Content: "\n   * Block comment\n   * NOTE(def: blah)\n   "
 - BlockCommentEnd: "*/"
 - Content: "\n  int x() "
 - GroupStart: "{"

@@ -4,6 +4,7 @@
 
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use pichpich::frontend::Options;
+use pichpich::parse_clike::FlatDocument;
 use pichpich::{frontend, main_impl, parse_clike};
 use pichpich_config::ErrorConfig;
 use std::path::PathBuf;
@@ -18,6 +19,40 @@ fn for_each_path(pattern: &str, test_path: &dyn Fn(PathBuf) -> ()) {
             }
         };
         test_path(path)
+    }
+}
+
+#[test]
+fn enclosing_spans_snapshots() {
+    let opts = Options {
+        root: "tests/snapshots/enclosing-spans".parse().unwrap(),
+        error_config: ErrorConfig::default(),
+    };
+    let syntax_data = frontend::gather(&opts).0;
+    assert!(!syntax_data.path_to_comment_map.is_empty());
+    let mut path_list: Vec<_> = syntax_data
+        .path_to_content_map
+        .iter()
+        .map(|(p, _)| p.clone())
+        .collect();
+    path_list.sort();
+    let mut documents = vec![];
+    for path in path_list.iter() {
+        let contents = syntax_data.path_to_content_map.get(path).unwrap().clone();
+        documents.push(FlatDocument::new(contents));
+    }
+    for (i, path) in path_list.iter().enumerate() {
+        let contents = syntax_data.path_to_content_map.get(path).unwrap();
+        let comments = syntax_data.path_to_comment_map.get(path).unwrap();
+        let mut comment_texts = comments.iter().map(|comment| {
+            contents
+                .as_str()
+                .get(comment.span.into_range())
+                .expect("stored out-of-bounds indexes in comment span")
+        });
+        insta::assert_snapshot!(
+            documents[i].format_snapshot_with_enclosing_spans(&mut comment_texts)
+        );
     }
 }
 

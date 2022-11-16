@@ -1,5 +1,5 @@
 ---
-source: tests/snapshots.rs
+source: crates/pichpich/tests/snapshots.rs
 expression: result.0.format_snapshot()
 ---
 NOTE(ref: abc)
@@ -11,5 +11,8 @@ FIXME(def: x, issue: aa)
 
   REVIEW(def: z, from: ss)
   ^^^^^^^^^^^^^^^^^^^^^^^^ MagicComment { is_def: true, id: "z", author: None, kind: Review { reviewer_id: Some("ss") } }
+
+これ NOTE(def: unicode)
+       ^^^^^^^^^^^^^^^^^^ MagicComment { is_def: true, id: "unicode", author: None, kind: Note }
 
 

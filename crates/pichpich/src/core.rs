@@ -4,6 +4,7 @@
 
 use crate::utils::AdjustOffsets;
 use crate::{
+    format_utils,
     miette_utils::SpanContentsWithPathAdapter,
     utils::{merge_map_vec, AllEquivalent},
 };
@@ -11,7 +12,6 @@ use lazy_static::lazy_static;
 use miette::MietteError;
 use regex::Regex;
 use serde::ser::SerializeStruct;
-use std::collections::VecDeque;
 use std::ops::Range;
 use std::{collections::HashMap, hash::Hash, path::PathBuf, sync::Arc};
 
@@ -96,7 +96,7 @@ impl Span {
             "inner str {inner} not contained in base {base}"
         );
         assert!(
-            base_mem_range.contains(&inner_end),
+            base_mem_range.contains(&(inner_end - 1).max(inner_start)),
             "inner str {inner} ends after base {base}"
         );
         Span::new(
@@ -130,10 +130,16 @@ impl AdjustOffsets for Span {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WithSpan<T> {
     pub span: Span,
     pub value: T,
+}
+
+impl<T> WithSpan<T> {
+    pub fn map<U>(self, f: &dyn Fn(T) -> U) -> WithSpan<U> {
+        self.span.attach_to(f(self.value))
+    }
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -270,46 +276,18 @@ impl SyntaxData {
         content: &Arc<String>,
         comments: Vec<WithSpan<Arc<MagicComment>>>,
     ) -> String {
-        let mut worklist = VecDeque::<WithSpan<_>>::new();
-        let mut comment_index = 0;
-        let mut buf = String::new();
-        for line in content.lines() {
-            buf.push_str(line);
-            buf.push('\n');
-            let line_span = Span::slice_relative(content.as_str(), line);
-            while let Some(pending) = worklist.pop_front() {
-                if !line_span.contains(pending.span.end()) {
-                    worklist.push_front(pending);
-                    break;
-                }
-                buf.push_str(&" ".repeat(pending.span.end() - line_span.start()));
-                buf.push_str(&format!("^ end {:?}\n", pending.value));
-            }
-            while comment_index != comments.len() {
-                let comment = &comments[comment_index];
-                let num_space = comment.span.start() - line_span.start();
-                if line_span.contains_span(comment.span) {
-                    buf.push_str(&" ".repeat(num_space));
-                    buf.push_str(&"^".repeat(comment.span.len()));
-                    buf.push_str(&format!(" {:?}\n", comment.value));
-                    comment_index += 1;
-                } else if line_span.contains(comment.span.start()) {
-                    buf.push_str(&" ".repeat(num_space));
-                    buf.push_str(&format!("^ start {:?}\n", comment.value));
-                    worklist.push_back(comment.clone());
-                    comment_index += 1;
-                } else {
-                    break;
-                }
-            }
-        }
-        assert!(worklist.is_empty());
-        return buf;
+        format_utils::format_snapshot_file(
+            content.as_str(),
+            comments
+                .into_iter()
+                .map(|wsc| wsc.map(&|mc| format!("{:?}", mc.as_ref())))
+                .collect(),
+        )
     }
     pub fn format_snapshot(&self) -> String {
         let mut files = vec![];
         for (path, content) in self.path_to_content_map.iter() {
-            let mut comments = self
+            let comments = self
                 .path_to_comment_map
                 .get(path)
                 .unwrap_or_else(|| {
@@ -319,7 +297,6 @@ impl SyntaxData {
                     )
                 })
                 .clone();
-            comments.sort();
             let file_snapshot = Self::format_snapshot_file(content, comments);
             files.push((path.clone(), file_snapshot));
         }
