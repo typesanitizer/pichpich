@@ -1,0 +1,122 @@
+---
+source: crates/pichpich/tests/snapshots.rs
+expression: "documents[i].format_snapshot_with_enclosing_spans(&mut comment_texts)"
+---
+// Currently block comments don't do paragraph detection,
+// so we only have 2 test cases.
+
+//-----------------------------------------------------------------------------
+// ( 1) top-level
+
+/*
+  Some stuff here
+< start enclosing paragraph for NOTE(def: bc-1-1)
+< start enclosing paragraph for NOTE(def: bc-1-2)
+< start enclosing paragraph for NOTE(ref: bc-1-1)
+  Other stuff.
+
+  New paragraph.
+  NOTE(def: bc-1-1): doo doo doo
+  Other stuff
+
+  Some text
+  See also NOTE(ref: bc-1-1)
+
+  NOTE(def: bc-1-2): la la la
+
+ > end enclosing paragraph for NOTE(def: bc-1-1)
+ > end enclosing paragraph for NOTE(def: bc-1-2)
+ > end enclosing paragraph for NOTE(ref: bc-1-1)
+*/
+
+/*
+ * New paragraph.
+< start enclosing paragraph for NOTE(def: bc-1-3)
+< start enclosing paragraph for NOTE(def: bc-1-4)
+< start enclosing paragraph for NOTE(ref: bc-1-3)
+ * NOTE(def: bc-1-3): doo doo doo
+ * Other stuff
+ *
+ * Some text
+ * See also NOTE(ref: bc-1-3)
+ *
+ * NOTE(def: bc-1-4): la la la
+ *
+ */
+ ^ end enclosing paragraph for NOTE(def: bc-1-3)
+ ^ end enclosing paragraph for NOTE(def: bc-1-4)
+ ^ end enclosing paragraph for NOTE(ref: bc-1-3)
+
+/* NOTE(def: bc-1-5): Cookies */
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ enclosing paragraph for NOTE(def: bc-1-5)
+/* See NOTE(def: bc-1-5) */
+  ^^^^^^^^^^^^^^^^^^^^^^^ enclosing paragraph for NOTE(def: bc-1-5)
+
+//-----------------------------------------------------------------------------
+// ( 2) in braces
+
+{
+  {
+    { {} }
+< start enclosing group for NOTE(def: bc-2-1)
+< start enclosing group for NOTE(def: bc-2-2)
+< start enclosing group for NOTE(def: bc-2-3)
+< start enclosing group for NOTE(def: bc-2-4)
+< start enclosing group for NOTE(def: bc-2-5)
+< start enclosing group for NOTE(def: bc-2-5)
+< start enclosing group for NOTE(ref: bc-2-1)
+< start enclosing group for NOTE(ref: bc-2-3)
+    /*
+      Some stuff here
+< start enclosing paragraph for NOTE(def: bc-2-1)
+< start enclosing paragraph for NOTE(def: bc-2-2)
+< start enclosing paragraph for NOTE(ref: bc-2-1)
+      Other stuff.
+
+      New paragraph.
+      NOTE(def: bc-2-1): doo doo doo
+      Other stuff
+
+      Some text
+      See also NOTE(ref: bc-2-1)
+
+      NOTE(def: bc-2-2): la la la
+
+    */
+    ^ end enclosing paragraph for NOTE(def: bc-2-1)
+    ^ end enclosing paragraph for NOTE(def: bc-2-2)
+    ^ end enclosing paragraph for NOTE(ref: bc-2-1)
+
+    /*
+     * New paragraph.
+< start enclosing paragraph for NOTE(def: bc-2-3)
+< start enclosing paragraph for NOTE(def: bc-2-4)
+< start enclosing paragraph for NOTE(ref: bc-2-3)
+     * NOTE(def: bc-2-3): doo doo doo
+     * Other stuff
+     *
+     * Some text
+     * See also NOTE(ref: bc-2-3)
+     *
+     * NOTE(def: bc-2-4): la la la
+     *
+     */
+     ^ end enclosing paragraph for NOTE(def: bc-2-3)
+     ^ end enclosing paragraph for NOTE(def: bc-2-4)
+     ^ end enclosing paragraph for NOTE(ref: bc-2-3)
+
+    /* NOTE(def: bc-2-5): Cookies */
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ enclosing paragraph for NOTE(def: bc-2-5)
+    /* See NOTE(def: bc-2-5) */
+      ^^^^^^^^^^^^^^^^^^^^^^^ enclosing paragraph for NOTE(def: bc-2-5)
+    { {} }
+  }
+  ^ end enclosing group for NOTE(def: bc-2-1)
+  ^ end enclosing group for NOTE(def: bc-2-2)
+  ^ end enclosing group for NOTE(def: bc-2-3)
+  ^ end enclosing group for NOTE(def: bc-2-4)
+  ^ end enclosing group for NOTE(def: bc-2-5)
+  ^ end enclosing group for NOTE(ref: bc-2-1)
+  ^ end enclosing group for NOTE(ref: bc-2-3)
+}
+
