@@ -26,6 +26,7 @@ fn for_each_path(pattern: &str, test_path: &dyn Fn(PathBuf) -> ()) {
 fn enclosing_spans_snapshots() {
     let opts = Options {
         root: "tests/snapshots/enclosing-spans".parse().unwrap(),
+        respect_ignore_file: false,
         error_config: ErrorConfig::default(),
     };
     let syntax_data = frontend::gather(&opts).0;
@@ -70,6 +71,7 @@ fn internal_state_snapshots() {
     for_each_path("tests/snapshots/internal-state-*", &|path| {
         let opts = Options {
             root: path.to_owned(),
+            respect_ignore_file: false,
             error_config: ErrorConfig::default(),
         };
         let result = frontend::gather(&opts);
@@ -86,6 +88,7 @@ fn error_snapshots() {
         assert!(error_config.populate(vec!["error:all".to_string()]).is_ok());
         let opts = Options {
             root: path.to_owned(),
+            respect_ignore_file: false,
             error_config,
         };
         let result = main_impl(opts);

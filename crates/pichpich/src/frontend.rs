@@ -36,6 +36,7 @@ use std::{
 
 pub struct Options {
     pub root: PathBuf,
+    pub respect_ignore_file: bool,
     pub error_config: ErrorConfig,
 }
 
@@ -213,10 +214,16 @@ pub fn gather(options: &Options) -> (SyntaxData, BTreeSet<AppError>) {
     // Don't ignore hidden directories by default, because that will miss directories
     // like .buildkite and .github, which often have config information that is connected
     // to something else.
-    let walker = ignore::WalkBuilder::new(options.root.clone())
+    let mut builder = ignore::WalkBuilder::new(options.root.clone());
+    let walker = builder
         .hidden(false)
-        .overrides(override_builder.build().expect("failed to build Override"))
-        .build_parallel();
+        .overrides(override_builder.build().expect("failed to build Override"));
+    let walker = if options.respect_ignore_file {
+        walker.add_custom_ignore_filename(".pichpich-ignore")
+    } else {
+        walker
+    };
+    let walker = walker.build_parallel();
     // TODO: Clone the regex per thread?
     let mut builder = FileVisitorBuilder::new(options.error_config.clone());
     walker.visit(&mut builder);

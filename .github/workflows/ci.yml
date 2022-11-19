@@ -36,7 +36,7 @@ jobs:
           command: test
 
   fmt:
-    name: Check formatting and Clippy
+    name: Lint and formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -53,3 +53,6 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+      - name: Run pichpich on the repo
+        run:
+          cargo run --bin pichpich

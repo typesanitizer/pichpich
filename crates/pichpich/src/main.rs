@@ -24,6 +24,7 @@ fn main() -> miette::Result<()> {
     let opts = Options {
         root: std::env::current_dir()
             .expect("failed to get the current directory; running in a sandbox?"),
+        respect_ignore_file: true,
         error_config,
     };
 
