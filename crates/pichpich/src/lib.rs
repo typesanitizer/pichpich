@@ -16,6 +16,7 @@ pub mod frontend;
 mod miette_utils;
 pub mod parse_clike;
 mod utils;
+mod parse_gitdiff;
 
 use crate::frontend::Options;
 use crate::{analysis::AnalysisErrorData, frontend::FrontendErrorData, miette_utils::ErrorCount};

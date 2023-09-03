@@ -252,7 +252,7 @@ impl FileVisitorBuilder {
     }
     fn aggregate_results(mut self) -> (Vec<SyntaxData>, BTreeSet<AppError>) {
         let mut out = (vec![], BTreeSet::default());
-        loop {
+        while self.alive_workers_count != 0 {
             match self.source.recv() {
                 Ok((data, err)) => {
                     out.0.push(data);
@@ -261,13 +261,11 @@ impl FileVisitorBuilder {
                             .map(|fe| fe.map(&AppErrorData::Frontend) as AppError),
                     );
                     self.alive_workers_count -= 1;
-                    if self.alive_workers_count == 0 {
-                        return out;
-                    }
                 }
                 Err(_) => {} // A receiver closed; that's OK.
             }
         }
+        return out;
     }
 }
 
