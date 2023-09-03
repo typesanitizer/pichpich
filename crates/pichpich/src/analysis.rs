@@ -29,6 +29,12 @@ impl SymbolTable {
                 !range.is_empty(),
                 "doesn't make sense to store empty ranges"
             );
+            // NOTE(def: magic-comment-lookalike)
+            // Some codebases make use of the NOTE + author name in parens pattern.
+            // Introducing pichpich incrementally into such a codebase may require turning
+            // off the MissingDefAndRef check. In this case, we may encounter what
+            // appears to be a magic comment with an empty id here, which should
+            // not be tracked further for analysis.
             if comment.id.is_empty() {
                 continue;
             }

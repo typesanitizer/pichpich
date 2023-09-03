@@ -16,16 +16,37 @@ use std::ops::Range;
 use std::{collections::HashMap, hash::Hash, path::PathBuf, sync::Arc};
 
 lazy_static! {
+    // TODO(def: closing-paren-separate-line, issue: https://github.com/typesanitizer/pichpich/issues/27)
+    // The regex matching here requires that a magic comment's key-value
+    // pairs do not contain ), and that the ) be on the same line as the
+    // opening (. (Not 100% sure about multi-line...). However, for more
+    // complex magic comments, we could have something like:
+    // BLAH(def: my-long-id,
+    //      author: l33t_hackerman_42069,
+    //      issue: https://github.com/myproject/foobar/issues/1)
+
     // TODO(def: sync-support): Add support for SYNC comments with blocks
     pub(crate) static ref SPECIAL_COMMENT_RE: Regex =
         Regex::new(r"(NOTE|WARNING|TODO|FIXME|REVIEW)\([^\)]*\)").unwrap();
 }
 
+/// A special type of comment that is meaningful to pichpich.
+///
+/// For proper magic comments, the 'id' field must be non-empty.
+///
+/// However, some codebases use the NOTE + author in parens pattern,
+/// so the parsing stage may potentially create MagicComment values
+/// with an empty id field, but they are later discarded.
+/// See NOTE(ref: magic-comment-lookalike).
 #[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct MagicComment {
+    /// Does this comment have a 'def:' field? Otherwise it is a reference.
     pub(crate) is_def: bool,
+    /// What is the (project-wide) unique id for this magic comment?
     pub(crate) id: String,
+    /// Who is the author for the comment?
     author: Option<String>,
+    /// Data specific to the magic comment in question
     pub(crate) kind: MagicCommentKindData,
 }
 
@@ -35,12 +56,15 @@ pub(crate) enum MagicCommentKindData {
     Note,
     Warning,
     Todo {
+        /// Tracking issue for this specific TODO comment.
         issue: Option<String>,
     },
     Fixme {
+        /// Tracking issue for this specific TODO comment
         issue: Option<String>,
     },
     Review {
+        /// Reviewer to tag if this comment is still around.
         reviewer_id: Option<String>,
     },
 }
@@ -58,6 +82,8 @@ impl MagicCommentKindData {
     }
 }
 
+/// A source span [start, end) within a file, tracking byte offsets from the
+/// start of the file.
 #[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     _start: usize,
@@ -253,8 +279,17 @@ impl serde::Serialize for SourceRange {
 
 #[derive(Default, Debug)]
 pub struct SyntaxData {
+    /// Tracks the file contents for files containing at least one magic comment
+    /// (or look-alike).
     pub path_to_content_map: HashMap<Arc<PathBuf>, Arc<String>>,
+    /// Tracks the magic comments (or look-alikes) found in a particular file
+    /// along with associated spans from keyword start to the end of the closing ).
     pub path_to_comment_map: HashMap<Arc<PathBuf>, Vec<WithSpan<Arc<MagicComment>>>>,
+    /// For each magic comment (or look-alike), tracks the ranges from the keyword
+    /// start to end of the closing ). In typical usage, a definition may have
+    /// multiple references to it (which correspond to identical MagicComment
+    /// values but different source ranges), so the value type of the map is a Vec,
+    /// not a single SourceRange.
     pub comment_to_range_map: HashMap<Arc<MagicComment>, Vec<SourceRange>>,
 }
 
