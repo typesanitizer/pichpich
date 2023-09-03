@@ -224,7 +224,8 @@ pub fn gather(options: &Options) -> (SyntaxData, BTreeSet<AppError>) {
         walker
     };
     let walker = walker.build_parallel();
-    // TODO: Clone the regex per thread?
+    // TODO(def: regex-clone): Does cloning the regex for each thread provide better
+    // search performance?
     let mut builder = FileVisitorBuilder::new(options.error_config.clone());
     walker.visit(&mut builder);
     let (comment_data, errors) = builder.aggregate_results();
@@ -405,6 +406,7 @@ fn parse_magic_comment(
         good_attrs,
         &mut errs,
     );
+    // See NOTE(ref: magic-comment-lookalike)
     if magic_comment.id.is_empty() {
         if let Some(level) = error_config.get_level(AppErrorCode::MissingDefAndRef) {
             let err = level.attach_to(FrontendErrorData::MissingId {
