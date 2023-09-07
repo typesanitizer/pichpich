@@ -20,6 +20,16 @@ impl ErrorLevel {
     }
 }
 
+impl Display for ErrorLevel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ErrorLevel::Ignore => "ignore",
+            ErrorLevel::Warn => "warn",
+            ErrorLevel::Error => "error",
+        })
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WithErrorLevel<T> {
     pub error: T,          // deliberately first for proper sorting

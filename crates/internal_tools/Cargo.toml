@@ -11,4 +11,6 @@ name = "pichpich-dev"
 path = "src/main.rs"
 
 [dependencies]
+pichpich = { path = "../pichpich" }
 pichpich_config = { path = "../pichpich_config" }
+clap = { version = "4.0.23" }

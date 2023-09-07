@@ -237,6 +237,8 @@ dependencies = [
 name = "internal_tools"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "pichpich",
  "pichpich_config",
 ]
 

@@ -20,11 +20,57 @@ mod utils;
 use crate::frontend::Options;
 use crate::{analysis::AnalysisErrorData, frontend::FrontendErrorData, miette_utils::ErrorCount};
 use miette::{Diagnostic, LabeledSpan, Severity, SourceCode};
-use pichpich_config::{ErrorLevel, WithErrorLevel};
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub fn main_impl(opts: Options) -> miette::Result<()> {
+use pichpich_config::{ErrorConfig, ErrorLevel, WithErrorLevel};
+
+pub fn main_command() -> clap::Command {
+    clap::command!()
+    .propagate_version(true)
+    .subcommand_required(true)
+    .arg_required_else_help(true)
+    .subcommand(
+        clap::Command::new("lint")
+        .arg(clap::arg!(--check <pattern> "A pattern in the form of (ignore|warn|error):(all|check-name) to control severity levels for different checks"))
+    )
+}
+
+pub fn main_impl(argv: impl IntoIterator<Item = std::ffi::OsString>) -> miette::Result<()> {
+    let matches = main_command().get_matches_from(argv);
+
+    match matches.subcommand() {
+        Some(("lint", sub_matches)) => {
+            return lint_main(sub_matches);
+        }
+        _ => unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`"),
+    }
+}
+
+fn lint_main(matches: &clap::ArgMatches) -> miette::Result<()> {
+    let checks = matches
+        .get_many::<String>("check")
+        .unwrap_or_default()
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let mut error_config = ErrorConfig::default();
+    // FIXME: Issue error for unknown arguments here.
+    // Also add some way of doing snapshot tests at the CLI level...
+    let _unknown_checks = error_config.populate(checks);
+
+    let opts = Options {
+        root: std::env::current_dir()
+            .expect("failed to get the current directory; running in a sandbox?"),
+        respect_ignore_file: true,
+        error_config,
+    };
+
+    lint_main_impl(opts)?;
+    Ok(())
+}
+
+pub fn lint_main_impl(opts: Options) -> miette::Result<()> {
     let (data, mut errors) = frontend::gather(&opts);
     let sem_errors = analysis::run(&opts, data);
 

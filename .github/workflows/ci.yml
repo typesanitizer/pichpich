@@ -31,6 +31,19 @@ jobs:
         with:
           profile: minimal
       - uses: Swatinem/rust-cache@v2
+      - name: Check docs up-to-date
+        run: |
+          cargo run --bin pichpich-dev -- create-docs
+          if ! git diff --quiet; then
+            git diff
+            echo ""
+            echo "┌───────────────────────────────────────────────────────────────┐"
+            echo "│                                                               │"
+            echo "│ Re-run `cargo run --bin pichpich-dev -- create-docs` and push │"
+            echo "│                                                               │"
+            echo "└───────────────────────────────────────────────────────────────┘"
+            exit 1
+          fi
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -55,4 +68,4 @@ jobs:
           args: -- -D warnings
       - name: Run pichpich on the repo
         run:
-          cargo run --bin pichpich
+          cargo run --bin pichpich -- lint
