@@ -5,7 +5,7 @@
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use pichpich::frontend::Options;
 use pichpich::parse_clike::FlatDocument;
-use pichpich::{frontend, main_impl, parse_clike};
+use pichpich::{frontend, lint_main_impl, parse_clike};
 use pichpich_config::ErrorConfig;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -91,7 +91,7 @@ fn error_snapshots() {
             respect_ignore_file: false,
             error_config,
         };
-        let result = main_impl(opts);
+        let result = lint_main_impl(opts);
         match result {
             Ok(()) => panic!(
                 "expected errors when processing {:?}",

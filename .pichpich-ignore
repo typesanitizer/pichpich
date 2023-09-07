@@ -1,2 +1,3 @@
 crates/pichpich/tests/snapshots/**
 crates/pichpich_config/src/config.rs
+docs/CLI.md
