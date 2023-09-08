@@ -45,7 +45,7 @@ pub struct MagicComment {
     /// What is the (project-wide) unique id for this magic comment?
     pub(crate) id: String,
     /// Who is the author for the comment?
-    author: Option<String>,
+    pub(crate) author: Option<String>,
     /// Data specific to the magic comment in question
     pub(crate) kind: MagicCommentKindData,
 }
