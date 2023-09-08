@@ -60,7 +60,7 @@ pub(crate) enum MagicCommentKindData {
         issue: Option<String>,
     },
     Fixme {
-        /// Tracking issue for this specific TODO comment
+        /// Tracking issue for this specific FIXME comment.
         issue: Option<String>,
     },
     Review {
