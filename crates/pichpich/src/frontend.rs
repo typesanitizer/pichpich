@@ -383,8 +383,10 @@ fn parse_magic_comment(
     let (input, kv_pairs) = delimited(nom_char('('), parse_attribute_list, nom_char(')'))(input)
         .expect("Mismatch between regex & parser combinator causing internal failure");
     parse_end(input).expect("Expected end with ) based on regex");
-    let mut magic_comment = MagicComment::default();
-    magic_comment.kind = kind;
+    let mut magic_comment = MagicComment {
+        kind,
+        ..Default::default()
+    };
     // TODO(def: batch-errors): Maybe we should create a Vec first, and then do iterations
     // over it for accumulating state. This would allow to easily batch errors of the same
     // kind together.
@@ -444,6 +446,9 @@ fn populate_attrs(
             "def" | "ref" => {
                 comment.id = value.to_owned();
                 comment.is_def = key == "def";
+            }
+            "author" => {
+                comment.author = Some(value.to_owned());
             }
             "issue" => match &mut comment.kind {
                 Kind::Todo { issue } => *issue = Some(value.to_owned()),
